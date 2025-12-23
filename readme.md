@@ -59,7 +59,7 @@ Shows: `C:XX M:XX S:XX`
 
 ## Auto-Start on Login
 
-Create `~/Library/LaunchAgents/com.macmonitor.plist`:
+Create `~/Library/LaunchAgents/com.monarx.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -67,7 +67,7 @@ Create `~/Library/LaunchAgents/com.macmonitor.plist`:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.macmonitor</string>
+    <string>com.monarx</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Users/&lt;username&gt;/tools/Monarx/.venv/bin/python</string>
@@ -81,9 +81,9 @@ Create `~/Library/LaunchAgents/com.macmonitor.plist`:
 </plist>
 ```
 
-Load: `launchctl load ~/Library/LaunchAgents/com.macmonitor.plist`
+Load: `launchctl load ~/Library/LaunchAgents/com.monarx.plist`
 
-Unload: `launchctl unload ~/Library/LaunchAgents/com.macmonitor.plist`
+Unload: `launchctl unload ~/Library/LaunchAgents/com.monarx.plist`
 
 ## Project Structure
 
