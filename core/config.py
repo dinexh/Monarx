@@ -11,3 +11,4 @@ SWAP_LIMIT = 20
 # (e.g. 10–30 seconds) unless you specifically need near-real-time alerts.
 CHECK_EVERY = 5
 COOLDOWN = 120
+

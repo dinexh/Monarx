@@ -3,7 +3,7 @@
 import sys
 import rumps
 
-from config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, CHECK_EVERY
+from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, CHECK_EVERY
 from core import get_stats, get_status, check_thresholds
 
 
@@ -79,3 +79,4 @@ def run():
     """Run the macOS app."""
     setup_macos()
     MonarxApp().run()
+

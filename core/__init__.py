@@ -3,7 +3,7 @@
 import time
 import psutil
 
-from config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, COOLDOWN
+from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, COOLDOWN
 
 
 def get_stats():
@@ -48,3 +48,4 @@ def check_thresholds(stats):
     if stats['swap'] >= SWAP_LIMIT and can_notify('swap'):
         alerts.append(("High Swap", f"Swap at {stats['swap']:.1f}%"))
     return alerts
+

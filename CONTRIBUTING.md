@@ -1,8 +1,8 @@
 # Contributing to Monarx
 
-Thank you for your interest in contributing to **Monarx** 🚀  
-Monarx is a lightweight system monitoring agent, currently focused on macOS,
-with plans for Windows and Linux support.
+Thank you for your interest in contributing to **Monarx** 🚀
+
+Monarx is a lightweight system monitoring agent, currently focused on macOS, with plans for Windows and Linux support.
 
 This document explains how to contribute cleanly and safely.
 
@@ -18,7 +18,7 @@ We follow a simple but strict workflow:
 4. **Open a Pull Request (PR)**
 5. **Get review & merge**
 
-⚠️ Direct pushes to `main` are not allowed.
+> ⚠️ **Important:** Direct pushes to `main` are not allowed.
 
 ---
 
@@ -26,14 +26,15 @@ We follow a simple but strict workflow:
 
 - `main` → Stable, release-ready code
 - `dev` → Active development branch
-- Feature / fix branches:
-- Example :
+- Feature / fix branches → Always branch **from `dev`**, never from `main`
+
+### Branch naming examples:
+
+```
 fix/dock-icon
 feature/windows-agent
 refactor/code-structure
-
-
-Always branch **from `dev`**, never from `main`.
+```
 
 ---
 
@@ -48,14 +49,16 @@ Issues help:
 - Discuss design decisions
 - Coordinate platform-specific work
 
-### Issue labels to use
-- `bug`
-- `enhancement`
-- `refactor`
-- `platform:mac`
-- `platform:windows`
-- `platform:linux`
-- `good first issue`
+### Issue Labels
+
+Use these labels when creating issues:
+- `bug` - Report bugs and unexpected behavior
+- `enhancement` - Suggest new features or improvements
+- `refactor` - Code improvements without changing functionality
+- `platform:mac` - macOS-specific issues
+- `platform:windows` - Windows-specific issues
+- `platform:linux` - Linux-specific issues
+- `good first issue` - Suitable for new contributors
 
 ---
 
@@ -66,15 +69,23 @@ Each PR should:
 - Link to an Issue
 - Target the `dev` branch
 
-### PR title format
+### PR Title Format
+
+Use semantic commit format:
+
+```
 fix(mac): hide Dock icon for background app
 feature(windows): initial system agent skeleton
+refactor: reorganize monitoring modules
+```
 
-### PR description should include:
-- What changed
-- Why it was needed
-- Platform impact
-- Linked Issue (`Closes #12`)
+### PR Description Template
+
+Your PR description should include:
+- **What changed** - Brief summary of changes
+- **Why it was needed** - Context and motivation
+- **Platform impact** - Which platforms are affected
+- **Linked Issue** - Reference with `Closes #12` or `Fixes #12`
 
 ---
 
@@ -83,27 +94,38 @@ feature(windows): initial system agent skeleton
 Monarx is structured to support multiple platforms.
 
 ### Guidelines
+
 - Shared logic goes in reusable modules
 - Platform-specific code must be isolated
 - Do not mix OS-level hacks into core logic
 
-Example:
-monarx/
-core/ # shared logic
-mac/ # macOS-specific code
-windows/ # Windows-specific code
+### Example Structure
 
+```
+core/         # shared logic
+  __init__.py
+  config.py
+mac/          # macOS-specific code
+  __init__.py
+windows/      # Windows-specific code
+  __init__.py
+linux/        # Linux-specific code
+  __init__.py
+main.py       # Entry point
+```
 
 ---
 
 ## 6. Platform-Specific Rules
 
 ### macOS
+
 - Use AppKit / PyObjC responsibly
 - Ensure background-only behavior when required
 - No Dock or Cmd+Tab visibility unless intentional
 
 ### Windows / Linux
+
 - Avoid assumptions from macOS behavior
 - Keep implementations modular and replaceable
 
@@ -112,10 +134,12 @@ windows/ # Windows-specific code
 ## 7. Commit Message Style
 
 We follow **semantic commit messages**:
+
+```
 fix(mac): hide Dock icon using accessory policy
 refactor: reorganize monitoring modules
 feature: add configurable alert thresholds
-
+```
 
 This helps with:
 - History readability
@@ -126,7 +150,6 @@ This helps with:
 
 ## 8. Be Respectful
 
-This project follows a friendly and respectful collaboration model.
-Constructive feedback is always welcome.
+This project follows a friendly and respectful collaboration model. Constructive feedback is always welcome.
 
 Happy hacking 👋
