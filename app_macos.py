@@ -1,76 +1,22 @@
-#!/usr/bin/env python3
-"""Monarx - A lightweight macOS menu bar system monitor."""
+"""Monarx - macOS menu bar implementation."""
 
 import sys
-import os
-
-# Check platform first
-if sys.platform != "darwin":
-    print("Error: Monarx only runs on macOS")
-    sys.exit(1)
-
-import bootstrap
 import rumps
-import psutil
-import time
 
-from config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, CHECK_EVERY, COOLDOWN
-
+from config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, CHECK_EVERY
+from core import get_stats, get_status, check_thresholds
 
 
-# SYSTEM STATS
+def setup_macos():
+    """Setup macOS-specific behavior."""
+    from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+    app = NSApplication.sharedApplication()
+    app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-def get_stats():
-    """Get current CPU, memory, and swap usage."""
-    return {
-        'cpu': psutil.cpu_percent(interval=0.1),
-        'mem': psutil.virtual_memory().percent,
-        'swap': psutil.swap_memory().percent
-    }
-
-
-def get_status(value, limit, warn_factor=0.85):
-    """Get status label based on value and limit."""
-    warn_threshold = limit * warn_factor
-    if value >= limit:
-        return "HIGH"
-    if value >= warn_threshold:
-        return "WARN"
-    return "OK"
-
-
-
-# NOTIFICATIONS
-
-
-_last_alert = {}
 
 def notify(title, message):
     """Send a macOS notification."""
-    # Use rumps.notification to avoid shell-based command execution
     rumps.notification(title, "", message)
-
-
-def can_notify(key):
-    """Check if notification can be sent (respects cooldown)."""
-    now = time.time()
-    if key not in _last_alert or now - _last_alert[key] > COOLDOWN:
-        _last_alert[key] = now
-        return True
-    return False
-
-
-def check_and_notify(stats):
-    """Send notifications if thresholds exceeded."""
-    if stats['cpu'] >= CPU_LIMIT and can_notify('cpu'):
-        notify("High CPU", f"CPU at {stats['cpu']:.1f}%")
-    if stats['mem'] >= MEM_LIMIT and can_notify('mem'):
-        notify("High Memory", f"Memory at {stats['mem']:.1f}%")
-    if stats['swap'] >= SWAP_LIMIT and can_notify('swap'):
-        notify("High Swap", f"Swap at {stats['swap']:.1f}%")
-
-
-# MENU BAR APP
 
 
 class MonarxApp(rumps.App):
@@ -82,12 +28,10 @@ class MonarxApp(rumps.App):
     
     def _build_menu(self):
         """Build the dropdown menu."""
-        # Stats items
         self.cpu_item = rumps.MenuItem("CPU: --%")
         self.mem_item = rumps.MenuItem("Memory: --%")
         self.swap_item = rumps.MenuItem("Swap: --%")
         
-        # Threshold items
         self.menu = [
             self.cpu_item,
             self.mem_item,
@@ -108,17 +52,15 @@ class MonarxApp(rumps.App):
         try:
             stats = get_stats()
             
-            # Update title
             self.title = f"C:{stats['cpu']:.0f} M:{stats['mem']:.0f} S:{stats['swap']:.0f}"
             
-            # Update menu items
             self.cpu_item.title = f"CPU: {stats['cpu']:.1f}% [{get_status(stats['cpu'], CPU_LIMIT)}]"
             self.mem_item.title = f"Memory: {stats['mem']:.1f}% [{get_status(stats['mem'], MEM_LIMIT)}]"
             self.swap_item.title = f"Swap: {stats['swap']:.1f}% [{get_status(stats['swap'], SWAP_LIMIT)}]"
             
-            # Check thresholds
-            check_and_notify(stats)
-            
+            for title, message in check_thresholds(stats):
+                notify(title, message)
+                
         except Exception as e:
             self.title = "Error"
             print(f"Error: {e}", file=sys.stderr)
@@ -126,12 +68,14 @@ class MonarxApp(rumps.App):
     def _refresh(self, _):
         """Manual refresh."""
         self._update(None)
-        rumps.notification("Monarx", "", "Refreshed")
+        notify("Monarx", "Refreshed")
     
     def _quit(self, _):
         """Quit application."""
         rumps.quit_application()
 
 
-if __name__ == "__main__":
+def run():
+    """Run the macOS app."""
+    setup_macos()
     MonarxApp().run()

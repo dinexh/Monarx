@@ -1,33 +1,43 @@
 # Monarx
 
-A lightweight macOS menu bar application for monitoring CPU, Memory, and Swap usage with native notifications.
+A lightweight cross-platform system tray application for monitoring CPU, Memory, and Swap usage.
+
+## Supported Platforms
+
+| Platform | Status |
+|----------|--------|
+| macOS    | ✅ Ready |
+| Windows  | 🚧 Coming Soon |
+| Linux    | 🚧 Coming Soon |
 
 ## Features
 
-- Live system stats in menu bar
-- Native macOS notifications when thresholds exceeded
+- Live system stats in system tray
+- Native notifications when thresholds exceeded
 - Configurable thresholds
 - Minimal and clean interface
 
-## Requirements
-
-- macOS
-- Python 3.7+
-
 ## Installation
+
+### macOS
 
 ```bash
 cd ~/tools/Monarx
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install psutil rumps pyobjc
+```
+
+### Windows / Linux (Coming Soon)
+
+```bash
+pip install psutil pystray pillow
 ```
 
 ## Usage
 
 ```bash
-source .venv/bin/activate
-python menu_bar_app.py
+python main.py
 ```
 
 ## Configuration
@@ -42,7 +52,7 @@ CHECK_EVERY = 5     # Refresh interval (seconds)
 COOLDOWN = 120      # Time between repeated notifications
 ```
 
-## Menu Bar Display
+## Display
 
 Shows: `C:XX M:XX S:XX`
 
@@ -50,14 +60,20 @@ Shows: `C:XX M:XX S:XX`
 - **M** = Memory %
 - **S** = Swap %
 
-## Dropdown Menu
+## Project Structure
 
-- CPU, Memory, Swap with status indicators `[OK]`, `[WARN]`, `[HIGH]`
-- Current threshold settings
-- Refresh button
-- Quit button
+```
+Monarx/
+├── main.py          # Entry point (auto-detects platform)
+├── core.py          # Platform-agnostic monitoring logic
+├── app_macos.py     # macOS implementation
+├── app_windows.py   # Windows implementation (stub)
+├── app_linux.py     # Linux implementation (stub)
+├── config.py        # Configuration
+└── README.md
+```
 
-## Auto-Start on Login
+## Auto-Start (macOS)
 
 Create `~/Library/LaunchAgents/com.monarx.plist`:
 
@@ -70,8 +86,8 @@ Create `~/Library/LaunchAgents/com.monarx.plist`:
     <string>com.monarx</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/&lt;username&gt;/tools/Monarx/.venv/bin/python</string>
-        <string>/Users/&lt;username&gt;/tools/Monarx/menu_bar_app.py</string>
+        <string>/path/to/.venv/bin/python</string>
+        <string>/path/to/Monarx/main.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -82,18 +98,6 @@ Create `~/Library/LaunchAgents/com.monarx.plist`:
 ```
 
 Load: `launchctl load ~/Library/LaunchAgents/com.monarx.plist`
-
-Unload: `launchctl unload ~/Library/LaunchAgents/com.monarx.plist`
-
-## Project Structure
-
-```
-Monarx/
-├── menu_bar_app.py    # Main application
-├── config.py          # Configuration
-├── requirements.txt   # Dependencies
-└── README.md
-```
 
 ## License
 
