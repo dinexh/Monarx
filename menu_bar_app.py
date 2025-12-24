@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Mac Monitor - A lightweight macOS menu bar system monitor."""
-
 import sys
 import os
 
@@ -9,6 +6,7 @@ if sys.platform != "darwin":
     print("Error: Mac Monitor only runs on macOS")
     sys.exit(1)
 
+import bootstrap
 import rumps
 import psutil
 import time
