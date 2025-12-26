@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
 """Monarx - Cross-platform system monitor."""
-
 import sys
 
 
