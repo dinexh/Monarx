@@ -77,7 +77,6 @@ Monarx/
 
 Create `~/Library/LaunchAgents/com.monarx.plist`:
 
-```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -86,18 +85,25 @@ Create `~/Library/LaunchAgents/com.monarx.plist`:
     <string>com.monarx</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/.venv/bin/python</string>
-        <string>/path/to/Monarx/main.py</string>
+        <string>/Users/YOUR_USER/path/to/Monarx/.venv/bin/python</string>
+        <string>/Users/YOUR_USER/path/to/Monarx/main.py</string>
     </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USER/path/to/Monarx</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/path/to/Monarx/monitor.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/path/to/Monarx/monitor.err</string>
 </dict>
-</plist>
-```
+</plist>Load and start the agent:
 
-Load: `launchctl load ~/Library/LaunchAgents/com.monarx.plist`
+launchctl load ~/Library/LaunchAgents/com.monarx.plist
+
+launchctl unload ~/Library/LaunchAgents/com.monarx.plist
 
 ## License
 
