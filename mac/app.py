@@ -5,7 +5,7 @@ import logging
 import rumps
 
 from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, CHECK_EVERY
-from core import get_stats, get_status, check_thresholds, get_top_processes
+from core import get_stats, get_status, check_thresholds, get_combined_process_info, can_notify
 from core.logging import setup_logging
 
 logger = logging.getLogger('monarx.mac')
@@ -63,14 +63,20 @@ def notify(title, message, subtitle=""):
             logger.error(f"Fallback notification also failed: {fallback_error}")
 
 
-def get_status_icon(status):
-    """Get emoji icon for status."""
-    icons = {
-        "OK": "✓",
-        "WARN": "⚠️",
-        "HIGH": "🔴"
+def get_status_label(status):
+    """Get text label for status."""
+    labels = {
+        "OK": "NORMAL",
+        "WARN": "WARN",
+        "HIGH": "CRITICAL"
     }
-    return icons.get(status, "•")
+    return labels.get(status, "IDLE")
+
+
+def get_progress_bar(percent, width=10):
+    """Create a simple ASCII progress bar."""
+    filled = int(percent / 100 * width)
+    return "[" + "■" * filled + "□" * (width - filled) + "]"
 
 
 def format_process_name(name, max_length=28):
@@ -94,132 +100,186 @@ class MonarxApp(rumps.App):
         super().__init__(name="Monarx", title="Loading...", quit_button=None)
         self.top_cpu_processes = []
         self.top_mem_processes = []
-        self.current_stats = {'cpu': 0, 'mem': 0, 'swap': 0}
+        self.current_stats = {}
         self._menu_updating = False
+        
+        # Dynamic thresholds
+        self.cpu_limit = CPU_LIMIT
+        self.mem_limit = MEM_LIMIT
+        self.swap_limit = SWAP_LIMIT
+        
         self._build_menu()
         logger.info("Monarx app initialized")
     
     def _build_menu(self):
         """Build the dropdown menu."""
-        self.cpu_item = rumps.MenuItem("💻 CPU: --%")
-        self.mem_item = rumps.MenuItem("🧠 Memory: --%")
-        self.swap_item = rumps.MenuItem("💾 Swap: --%")
-        
-        # Top processes section - will be updated dynamically
-        self.top_cpu_processes = []
-        self.top_mem_processes = []
-        self.top_cpu_items = []
-        self.top_mem_items = []
-        
-        # Build initial menu with improved UI
-        menu_items = [
-            rumps.MenuItem("📊 System Status", callback=None),
+        # Initial placeholders
+        self.menu = [
+            rumps.MenuItem("SYSTEM MONITOR", callback=None),
             None,
-            self.cpu_item,
-            self.mem_item,
-            self.swap_item,
+            "Loading details...",
             None,
-            rumps.MenuItem("⚙️ Thresholds", callback=None),
-            rumps.MenuItem(f"  CPU: {CPU_LIMIT}%"),
-            rumps.MenuItem(f"  Memory: {MEM_LIMIT}%"),
-            rumps.MenuItem(f"  Swap: {SWAP_LIMIT}%"),
+            rumps.MenuItem("SETTINGS", callback=None),
+            rumps.MenuItem("  Change Thresholds", callback=self._change_thresholds),
             None,
-            rumps.MenuItem("🔥 Top CPU Processes"),
-            rumps.MenuItem("  ⏳ Loading...", callback=None),
+            rumps.MenuItem("REFRESH", callback=self._refresh),
+            rumps.MenuItem("VIEW LOGS", callback=self._view_logs),
             None,
-            rumps.MenuItem("💾 Top Memory Processes"),
-            rumps.MenuItem("  ⏳ Loading...", callback=None),
-            None,
-            rumps.MenuItem("🔄 Refresh", callback=self._refresh),
-            rumps.MenuItem("📝 View Logs", callback=self._view_logs),
-            None,
-            rumps.MenuItem("❌ Quit", callback=self._quit)
+            rumps.MenuItem("QUIT", callback=self._quit)
         ]
-        
-        self.menu = menu_items
-        # Store indices for process sections
-        self.cpu_start_idx = 12  # Index of "Top CPU Processes" + 1
-        self.mem_start_idx = 15  # Index of "Top Memory Processes" + 1
     
+    def _change_thresholds(self, _):
+        """Change monitoring thresholds."""
+        response = rumps.Window(
+            message=f"Current: CPU={self.cpu_limit}%, Mem={self.mem_limit}%, Swap={self.swap_limit}%\n"
+                    f"Enter new values as 'CPU MEM SWAP' (e.g., '90 85 30'):",
+            title="Update Thresholds",
+            cancel=True
+        ).run()
+        
+        if response.clicked:
+            try:
+                vals = response.text.split()
+                if len(vals) == 3:
+                    self.cpu_limit = int(vals[0])
+                    self.mem_limit = int(vals[1])
+                    self.swap_limit = int(vals[2])
+                    notify("Monarx", "Thresholds updated")
+                    logger.info(f"Thresholds updated: CPU={self.cpu_limit}, Mem={self.mem_limit}, Swap={self.swap_limit}")
+                    self._update(None)
+            except Exception as e:
+                rumps.alert("Invalid input. Please enter three numbers.")
+                logger.error(f"Error updating thresholds: {e}")
+
+    def _kill_process(self, sender):
+        """Kill a process."""
+        pid = sender.pid
+        name = sender.proc_name
+        try:
+            import os
+            import signal
+            os.kill(pid, signal.SIGTERM)
+            notify("Monarx", f"Sent SIGTERM to {name} (PID: {pid})")
+            logger.info(f"Killed process {name} (PID: {pid})")
+            self._update(None)
+        except Exception as e:
+            notify("Monarx", f"Failed to kill {name}: {e}")
+            logger.error(f"Error killing process {pid}: {e}")
+
+    def _open_process_info(self, sender):
+        """Show process info (placeholder for more advanced action)."""
+        pid = sender.pid
+        notify("Monarx", f"Process PID: {pid}")
+        # Could use 'open' or similar to show in Activity Monitor if we knew how to focus it on a PID
+        import subprocess
+        subprocess.run(['open', '-a', 'Activity Monitor'])
+
     def _update_process_menu(self):
         """Update the top processes menu items."""
-        # Prevent concurrent menu updates
         if self._menu_updating:
             return
         self._menu_updating = True
         
         try:
-            # Get top processes
-            self.top_cpu_processes = get_top_processes(by='cpu', limit=5)
-            self.top_mem_processes = get_top_processes(by='memory', limit=5)
-            
-            # Get current stats for menu items
             stats = self.current_stats
-            cpu_title = f"CPU: {stats['cpu']:.1f}% [{get_status(stats['cpu'], CPU_LIMIT)}]"
-            mem_title = f"Memory: {stats['mem']:.1f}% [{get_status(stats['mem'], MEM_LIMIT)}]"
-            swap_title = f"Swap: {stats['swap']:.1f}% [{get_status(stats['swap'], SWAP_LIMIT)}]"
+            if not stats:
+                return
+
+            # Get combined process info in one pass - much more efficient
+            cpu_procs, mem_procs, gpu_procs = get_combined_process_info(limit=5)
             
-            # Rebuild menu by creating ALL new menu items to avoid reuse issues
-            self.cpu_item = rumps.MenuItem(cpu_title)
-            self.mem_item = rumps.MenuItem(mem_title)
-            self.swap_item = rumps.MenuItem(swap_title)
+            # Health Summary
+            pressure_label = get_status_label(stats.get('pressure_status', 'OK'))
+            lag_state = "STRESSED" if stats.get('lag_risk') else "HEALTHY"
+            
+            summary_title = f"System Health: {pressure_label} Pressure | {lag_state}"
+            
+            # Memory Breakdown
+            m = stats.get('macos_mem', {})
+            mem_breakdown = []
+            if m:
+                mem_breakdown = [
+                    rumps.MenuItem(f"RAM Usage {get_progress_bar(stats['mem'])} {stats['mem']:.1f}%"),
+                    rumps.MenuItem(f"  + Wired: {m.get('wired', 0):.1f} GB"),
+                    rumps.MenuItem(f"  + Active: {m.get('active', 0):.1f} GB"),
+                    rumps.MenuItem(f"  + Compressed: {m.get('compressed', 0):.1f} GB {'(HIGH)' if m.get('compressed', 0) > m.get('active', 0) else ''}"),
+                    rumps.MenuItem(f"  + Cached: {m.get('cached', 0):.1f} GB"),
+                ]
+            
+            # GPU Info - Heuristic based from combined pass
+            gpu_activity = "IDLE"
+            if gpu_procs:
+                total_gpu_cpu = sum(p['cpu'] for p in gpu_procs)
+                if total_gpu_cpu > 50:
+                    gpu_activity = "HEAVY"
+                elif total_gpu_cpu > 10:
+                    gpu_activity = "MODERATE"
+            
+            gpu_title = f"GPU Activity: {gpu_activity}"
             
             menu_items = [
-                self.cpu_item,
-                self.mem_item,
-                self.swap_item,
+                rumps.MenuItem(summary_title),
                 None,
-                rumps.MenuItem("Thresholds:"),
-                rumps.MenuItem(f"  CPU: {CPU_LIMIT}%"),
-                rumps.MenuItem(f"  Memory: {MEM_LIMIT}%"),
-                rumps.MenuItem(f"  Swap: {SWAP_LIMIT}%"),
+                rumps.MenuItem(f"CPU Load {get_progress_bar(stats['cpu'])} {stats['cpu']:.1f}% ({get_status_label(get_status(stats['cpu'], self.cpu_limit))})"),
+                rumps.MenuItem(gpu_title),
                 None,
-                rumps.MenuItem("Top CPU Processes:"),
             ]
             
-            # Add CPU processes
-            if self.top_cpu_processes:
-                for name, pid, usage in self.top_cpu_processes:
-                    display_name = name[:30] if len(name) > 30 else name
-                    menu_items.append(
-                        rumps.MenuItem(f"  {display_name}: {usage:.1f}% (PID: {pid})", callback=None)
-                    )
-            else:
-                menu_items.append(rumps.MenuItem("  No processes found", callback=None))
-            
+            menu_items.extend(mem_breakdown)
+            menu_items.append(rumps.MenuItem(f"Swap Usage {get_progress_bar(stats['swap'])} {stats['swap']:.1f}%"))
             menu_items.append(None)
-            menu_items.append(rumps.MenuItem("Top Memory Processes:"))
             
-            # Add Memory processes
-            if self.top_mem_processes:
-                for name, pid, usage in self.top_mem_processes:
-                    display_name = name[:30] if len(name) > 30 else name
-                    menu_items.append(
-                        rumps.MenuItem(f"  {display_name}: {usage:.1f}% (PID: {pid})", callback=None)
-                    )
-            else:
-                menu_items.append(rumps.MenuItem("  No processes found", callback=None))
-            
+            # Thresholds display
             menu_items.extend([
+                rumps.MenuItem("SETTINGS"),
+                rumps.MenuItem(f"  Thresholds: CPU {self.cpu_limit}% | MEM {self.mem_limit}% | SWAP {self.swap_limit}%", callback=self._change_thresholds),
                 None,
-                rumps.MenuItem("Refresh", callback=self._refresh),
-                rumps.MenuItem("View Logs", callback=self._view_logs),
-                rumps.MenuItem("Quit", callback=self._quit)
             ])
             
-            # IMPORTANT: Clear the menu first by removing all items
-            # This prevents rumps from appending instead of replacing
+            # CPU Processes
+            menu_items.append(rumps.MenuItem("TOP CPU PROCESSES:"))
+            for p in cpu_procs:
+                p_item = rumps.MenuItem(f"  {p['name'][:25]}: {p['cpu']:.1f}%")
+                kill_item = rumps.MenuItem("Kill Process", callback=self._kill_process)
+                kill_item.pid = p['pid']
+                kill_item.proc_name = p['raw_name']
+                info_item = rumps.MenuItem("Show PID", callback=self._open_process_info)
+                info_item.pid = p['pid']
+                
+                p_item.add(kill_item)
+                p_item.add(info_item)
+                menu_items.append(p_item)
+            
+            menu_items.append(None)
+            
+            # Memory Processes
+            menu_items.append(rumps.MenuItem("TOP MEMORY PROCESSES:"))
+            for p in mem_procs:
+                p_item = rumps.MenuItem(f"  {p['name'][:25]}: {p['mem']:.1f}%")
+                kill_item = rumps.MenuItem("Kill Process", callback=self._kill_process)
+                kill_item.pid = p['pid']
+                kill_item.proc_name = p['raw_name']
+                
+                p_item.add(kill_item)
+                menu_items.append(p_item)
+            
+            # Standard items
+            menu_items.extend([
+                None,
+                rumps.MenuItem("REFRESH", callback=self._refresh),
+                rumps.MenuItem("VIEW LOGS", callback=self._view_logs),
+                rumps.MenuItem("QUIT", callback=self._quit)
+            ])
+            
+            # Clear and set menu
             try:
                 if hasattr(self, '_menu') and self._menu:
-                    # Access the internal NSMenu object and clear it
                     ns_menu = self._menu._menu
                     if ns_menu:
                         ns_menu.removeAllItems()
-            except Exception as e:
-                logger.debug(f"Error clearing menu: {e}")
+            except Exception:
+                pass
             
-            # Now set the new menu - this should replace, not append
-            # Setting menu to list should replace, but we cleared first to be sure
             self.menu = menu_items
         finally:
             self._menu_updating = False
@@ -229,29 +289,45 @@ class MonarxApp(rumps.App):
         """Update stats on timer."""
         try:
             stats = get_stats()
-            
-            self.title = f"C:{stats['cpu']:.0f} M:{stats['mem']:.0f} S:{stats['swap']:.0f}"
-            
-            # Store current stats for menu rebuild
             self.current_stats = stats
             
-            # Update top processes menu (which will rebuild menu with updated stats)
+            # Dynamic title based on health - Pro look (Compact)
+            pressure_label = get_status_label(stats.get('pressure_status', 'OK'))
+            if stats.get('lag_risk'):
+                self.title = f"STRESS! | CPU {stats['cpu']:.0f}% | MEM {stats['mem']:.0f}%"
+            else:
+                self.title = f"{pressure_label[:3]} | C:{stats['cpu']:.0f}% M:{stats['mem']:.0f}%"
+            
             self._update_process_menu()
             
-            # Check thresholds and send notifications
-            alerts = check_thresholds(stats)
+            # Check thresholds (using dynamic ones)
+            alerts = self._check_dynamic_thresholds(stats)
             for title, message in alerts:
                 notify(title, message)
-            
-            logger.debug(
-                f"Stats updated - CPU: {stats['cpu']:.1f}%, "
-                f"Memory: {stats['mem']:.1f}%, Swap: {stats['swap']:.1f}%"
-            )
                 
         except Exception as e:
-            self.title = "Error"
+            self.title = "SYSTEM ERROR"
             logger.error(f"Error updating stats: {e}", exc_info=True)
-            print(f"Error: {e}", file=sys.stderr)
+
+    def _check_dynamic_thresholds(self, stats):
+        """Check thresholds using the instance's limits."""
+        # This is a bit redundant with core.check_thresholds but allows dynamic limits
+        alerts = []
+        if stats['cpu'] >= self.cpu_limit and can_notify('cpu'):
+            alerts.append(("High CPU", f"CPU at {stats['cpu']:.1f}%"))
+        if stats['mem'] >= self.mem_limit and can_notify('mem'):
+            alerts.append(("High Memory", f"Memory at {stats['mem']:.1f}%"))
+        if stats['swap'] >= self.swap_limit and can_notify('swap'):
+            alerts.append(("High Swap", f"Swap at {stats['swap']:.1f}%"))
+        
+        # Add macOS specific ones from core
+        if sys.platform == 'darwin':
+            if stats.get('pressure_status') in ['WARN', 'HIGH'] and can_notify('pressure'):
+                alerts.append(("Memory Pressure", f"Status: {stats['pressure_status']}"))
+            if stats.get('lag_risk') and can_notify('lag_risk'):
+                m = stats.get('macos_mem', {})
+                alerts.append(("Lag Risk Detected", f"Compressed > Active"))
+        return alerts
     
     def _refresh(self, _):
         """Manual refresh."""
