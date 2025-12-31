@@ -311,23 +311,12 @@ class MonarxApp(rumps.App):
 
     def _check_dynamic_thresholds(self, stats):
         """Check thresholds using the instance's limits."""
-        # This is a bit redundant with core.check_thresholds but allows dynamic limits
-        alerts = []
-        if stats['cpu'] >= self.cpu_limit and can_notify('cpu'):
-            alerts.append(("High CPU", f"CPU at {stats['cpu']:.1f}%"))
-        if stats['mem'] >= self.mem_limit and can_notify('mem'):
-            alerts.append(("High Memory", f"Memory at {stats['mem']:.1f}%"))
-        if stats['swap'] >= self.swap_limit and can_notify('swap'):
-            alerts.append(("High Swap", f"Swap at {stats['swap']:.1f}%"))
-        
-        # Add macOS specific ones from core
-        if sys.platform == 'darwin':
-            if stats.get('pressure_status') in ['WARN', 'HIGH'] and can_notify('pressure'):
-                alerts.append(("Memory Pressure", f"Status: {stats['pressure_status']}"))
-            if stats.get('lag_risk') and can_notify('lag_risk'):
-                m = stats.get('macos_mem', {})
-                alerts.append(("Lag Risk Detected", f"Compressed > Active"))
-        return alerts
+        return check_thresholds(
+            stats,
+            cpu_limit=self.cpu_limit,
+            mem_limit=self.mem_limit,
+            swap_limit=self.swap_limit
+        )
     
     def _refresh(self, _):
         """Manual refresh."""
