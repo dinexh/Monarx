@@ -65,18 +65,19 @@ Shows: `C:XX M:XX S:XX`
 ```
 Monarx/
 ├── main.py          # Entry point (auto-detects platform)
-├── core.py          # Platform-agnostic monitoring logic
-├── app_macos.py     # macOS implementation
-├── app_windows.py   # Windows implementation (stub)
-├── app_linux.py     # Linux implementation (stub)
-├── config.py        # Configuration
-└── README.md
+├── core/            # Platform-agnostic monitoring logic
+│   ├── config.py    # Configuration
+│   └── logging.py   # Logging setup
+├── mac/             # macOS implementation
+├── windows/         # Windows implementation (stub)
+└── linux/           # Linux implementation (stub)
 ```
 
 ## Auto-Start (macOS)
 
 Create `~/Library/LaunchAgents/com.monarx.plist`:
 
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -85,25 +86,38 @@ Create `~/Library/LaunchAgents/com.monarx.plist`:
     <string>com.monarx</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_USER/path/to/Monarx/.venv/bin/python</string>
-        <string>/Users/YOUR_USER/path/to/Monarx/main.py</string>
+        <string>/Users/dineshkorukonda/tools/Monarx/.venv/bin/python</string>
+        <string>/Users/dineshkorukonda/tools/Monarx/main.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/YOUR_USER/path/to/Monarx</string>
+    <string>/Users/dineshkorukonda/tools/Monarx</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/YOUR_USER/path/to/Monarx/monitor.log</string>
+    <string>/Users/dineshkorukonda/tools/Monarx/monitor.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/YOUR_USER/path/to/Monarx/monitor.err</string>
+    <string>/Users/dineshkorukonda/tools/Monarx/monitor.err</string>
 </dict>
-</plist>Load and start the agent:
+</plist>
+```
 
+Load and start the agent:
+
+```bash
 launchctl load ~/Library/LaunchAgents/com.monarx.plist
+```
 
+To stop it:
+
+```bash
 launchctl unload ~/Library/LaunchAgents/com.monarx.plist
+```
+
+## Preview
+
+![Monarx Menu Bar](docs/images/ref.png)
 
 ## License
 
