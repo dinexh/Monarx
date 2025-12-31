@@ -203,18 +203,18 @@ def can_notify(key):
         return True
     return False
 
-def check_thresholds(stats):
+def check_thresholds(stats, cpu_limit=CPU_LIMIT, mem_limit=MEM_LIMIT, swap_limit=SWAP_LIMIT):
     """Check if any thresholds are exceeded. Returns list of alerts."""
     alerts = []
     
     # Generic thresholds
-    if stats['cpu'] >= CPU_LIMIT and can_notify('cpu'):
+    if stats['cpu'] >= cpu_limit and can_notify('cpu'):
         alerts.append(("High CPU", f"CPU at {stats['cpu']:.1f}%"))
         
-    if stats['mem'] >= MEM_LIMIT and can_notify('mem'):
+    if stats['mem'] >= mem_limit and can_notify('mem'):
         alerts.append(("High Memory", f"Memory at {stats['mem']:.1f}%"))
         
-    if stats['swap'] >= SWAP_LIMIT and can_notify('swap'):
+    if stats['swap'] >= swap_limit and can_notify('swap'):
         alerts.append(("High Swap", f"Swap at {stats['swap']:.1f}%"))
 
     # macOS specific alerts
