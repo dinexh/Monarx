@@ -54,8 +54,19 @@ Monarx/
 ├── core/            # System monitoring logic
 │   ├── config.py    # Configuration
 │   └── logging.py   # Logging setup
-└── mac/             # macOS implementation
+├── mac/             # macOS implementation
+└── web/             # Next.js web application (landing page)
 ```
+
+## CI/CD
+
+This repository uses GitHub Actions with separate workflows for the Python app and web app to ensure they don't interfere with each other:
+
+- **Python App CI** (`.github/workflows/python-app.yml`): Runs on macOS, tests Python code, only triggers on changes outside `web/`
+- **Web App CI** (`.github/workflows/web-app.yml`): Builds and tests the Next.js app, only triggers on changes inside `web/`
+- **Combined CI** (`.github/workflows/ci.yml`): Smart workflow that detects which parts changed and runs appropriate tests
+
+Changes to the `web/` directory will **not** trigger Python app tests, and changes to Python files will **not** trigger web app builds.
 
 ## Auto-Start
 

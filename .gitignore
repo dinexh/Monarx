@@ -1,4 +1,30 @@
+# Python
 .venv/
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Logs
 monitor.log
 monitor.err
+*.log
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Web app has its own .gitignore in web/.gitignore

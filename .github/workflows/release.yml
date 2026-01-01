@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+
+jobs:
+  release-python:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install build twine
+      
+      - name: Verify Python app
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); from core import get_stats; from mac import run; print('Python app verified')"
+      
+      - name: Create release notes
+        run: |
+          echo "## Python App Release" >> release-notes.md
+          echo "- Version: ${{ github.event.release.tag_name || inputs.version }}" >> release-notes.md
+          echo "- Platform: macOS only" >> release-notes.md
+          echo "- Python: 3.9+" >> release-notes.md
+
+  release-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+      
+      - name: Build Next.js app
+        working-directory: ./web
+        run: npm run build
+        env:
+          NODE_ENV: production
+      
+      - name: Verify build
+        working-directory: ./web
+        run: |
+          if [ ! -d ".next" ]; then
+            echo "Build verification failed"
+            exit 1
+          fi
+          echo "Web app build verified"
+
