@@ -1,11 +1,9 @@
-"""Core system monitoring logic - platform agnostic."""
+"""Core system monitoring logic - macOS specific."""
 
 import time
 import psutil
 import logging
 import subprocess
-import os
-import sys
 import gc
 
 from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, COOLDOWN
@@ -26,9 +24,6 @@ def get_page_size():
 
 def get_macos_memory_info():
     """Get detailed macOS memory breakdown."""
-    if sys.platform != 'darwin':
-        return None
-    
     try:
         page_size = get_page_size()
         
@@ -45,7 +40,7 @@ def get_macos_memory_info():
                 except (ValueError, IndexError):
                     continue
         
-        # Get memory_pressure for compressed info - slightly slower but provides critical data
+        # Get memory_pressure for compressed info
         try:
             mp_output = subprocess.check_output(['memory_pressure'], stderr=subprocess.STDOUT).decode('utf-8')
             compressed_bytes = 0
@@ -73,9 +68,6 @@ def get_macos_memory_info():
 
 def get_memory_pressure():
     """Get macOS memory pressure level - very fast sysctl call."""
-    if sys.platform != 'darwin':
-        return "N/A", 0
-    
     try:
         pressure_val = int(subprocess.check_output(['sysctl', '-n', 'vm.memory_pressure']).strip())
         status = "OK"
@@ -94,44 +86,38 @@ def get_stats():
     swap = psutil.swap_memory()
     
     stats = {
-        'cpu': psutil.cpu_percent(interval=None), # Non-blocking for background efficiency
+        'cpu': psutil.cpu_percent(interval=None), 
         'mem': vm.percent,
         'swap': swap.percent,
         'mem_total_gb': vm.total / (1024**3),
     }
     
-    if sys.platform == 'darwin':
-        stats['macos_mem'] = get_macos_memory_info()
-        stats['pressure_status'], stats['pressure_val'] = get_memory_pressure()
-        
-        # Simple lag risk check
-        if stats['macos_mem']:
-            m = stats['macos_mem']
-            stats['lag_risk'] = m['compressed'] > m['active'] or stats['pressure_val'] > 0
-        else:
-            stats['lag_risk'] = False
+    stats['macos_mem'] = get_macos_memory_info()
+    stats['pressure_status'], stats['pressure_val'] = get_memory_pressure()
+    
+    # Simple lag risk check
+    if stats['macos_mem']:
+        m = stats['macos_mem']
+        stats['lag_risk'] = m['compressed'] > m['active'] or stats['pressure_val'] > 0
+    else:
+        stats['lag_risk'] = False
             
     # Trigger lightweight GC occasionally
-    if time.time() % 60 < 5: # Roughly every minute
-        gc.collect(1) # Generation 1 collect is fast
+    if time.time() % 60 < 5: 
+        gc.collect(1) 
         
     return stats
 
 def get_combined_process_info(limit=5):
     """
     Combined pass to get top CPU, Top Memory, and GPU-heavy processes.
-    This is much more efficient than multiple passes.
     """
-    if sys.platform != 'darwin':
-        return [], [], []
-
     cpu_procs = []
     mem_procs = []
     gpu_heavy_names = {'Electron', 'WebKit', 'Google Chrome', 'Slack', 'Discord', 'WindowServer', 'Helper'}
     gpu_found = []
 
     try:
-        # One pass over all processes
         for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
             try:
                 info = proc.info
@@ -140,11 +126,9 @@ def get_combined_process_info(limit=5):
                 cpu = info.get('cpu_percent')
                 mem = info.get('memory_percent')
 
-                # Handle potential None values
                 if cpu is None: cpu = 0.0
                 if mem is None: mem = 0.0
 
-                # Tag process characteristics
                 labels = []
                 if name and any(s in name.lower() for s in ['mds', 'mdworker']):
                     labels.append("Spotlight")
@@ -172,7 +156,6 @@ def get_combined_process_info(limit=5):
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
-        # Sort and limit
         cpu_procs.sort(key=lambda x: x['cpu'], reverse=True)
         mem_procs.sort(key=lambda x: x['mem'], reverse=True)
         
@@ -181,7 +164,6 @@ def get_combined_process_info(limit=5):
     except Exception as e:
         logger.error(f"Error in combined process scan: {e}")
         return [], [], []
-
 
 def get_status(value, limit, warn_factor=0.85):
     """Get status label based on value and limit."""
@@ -207,7 +189,6 @@ def check_thresholds(stats, cpu_limit=CPU_LIMIT, mem_limit=MEM_LIMIT, swap_limit
     """Check if any thresholds are exceeded. Returns list of alerts."""
     alerts = []
     
-    # Generic thresholds
     if stats['cpu'] >= cpu_limit and can_notify('cpu'):
         alerts.append(("High CPU", f"CPU at {stats['cpu']:.1f}%"))
         
@@ -217,26 +198,16 @@ def check_thresholds(stats, cpu_limit=CPU_LIMIT, mem_limit=MEM_LIMIT, swap_limit
     if stats['swap'] >= swap_limit and can_notify('swap'):
         alerts.append(("High Swap", f"Swap at {stats['swap']:.1f}%"))
 
-    # macOS specific alerts
-    if sys.platform == 'darwin':
-        if stats.get('pressure_status') in ['WARN', 'HIGH'] and can_notify('pressure'):
-            alerts.append(("Memory Pressure", f"Status: {stats['pressure_status']}"))
+    if stats.get('pressure_status') in ['WARN', 'HIGH'] and can_notify('pressure'):
+        alerts.append(("Memory Pressure", f"Status: {stats['pressure_status']}"))
             
-        if stats.get('lag_risk') and can_notify('lag_risk'):
-            alerts.append(("Lag Risk Detected", "Compressed Memory > Active Memory"))
+    if stats.get('lag_risk') and can_notify('lag_risk'):
+        alerts.append(("Lag Risk Detected", "Compressed Memory > Active Memory"))
 
     return alerts
 
 def get_process_info(pid):
-    """
-    Get detailed information about a process.
-    
-    Args:
-        pid: Process ID
-    
-    Returns:
-        Dictionary with process info or None if process not found
-    """
+    """Get detailed information about a process."""
     try:
         proc = psutil.Process(pid)
         return {
@@ -252,4 +223,3 @@ def get_process_info(pid):
         }
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         return None
-

@@ -1,20 +1,13 @@
-"""Monarx - Cross-platform system monitor."""
+"""Monarx - macOS system monitor."""
 import sys
 
 
 def main():
-    platform = sys.platform
-    
-    if platform == "darwin":
-        from mac import run
-    elif platform == "win32":
-        from windows import run
-    elif platform.startswith("linux"):
-        from linux import run
-    else:
-        print(f"Unsupported platform: {platform}")
+    if sys.platform != "darwin":
+        print(f"Unsupported platform: {sys.platform}. Monarx is macOS-only.")
         sys.exit(1)
-    
+        
+    from mac import run
     run()
 
 

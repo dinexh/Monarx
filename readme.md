@@ -1,37 +1,24 @@
 # Monarx
 
-A lightweight cross-platform system tray application for monitoring CPU, Memory, and Swap usage.
-
-## Supported Platforms
-
-| Platform | Status |
-|----------|--------|
-| macOS    | ✅ Ready |
-| Windows  | 🚧 Coming Soon |
-| Linux    | 🚧 Coming Soon |
+A lightweight macOS menu bar application for monitoring CPU, Memory, and Swap usage with detailed memory breakdown and pressure alerts.
 
 ## Features
 
-- Live system stats in system tray
-- Native notifications when thresholds exceeded
+- Live system stats in the macOS menu bar
+- Detailed memory breakdown (Wired, Active, Compressed, Cached)
+- Native notifications when thresholds are exceeded
+- Memory pressure and lag risk detection
+- Top CPU and Memory process monitoring with kill capability
 - Configurable thresholds
 - Minimal and clean interface
 
 ## Installation
-
-### macOS
 
 ```bash
 cd ~/tools/Monarx
 python3 -m venv .venv
 source .venv/bin/activate
 pip install psutil rumps pyobjc
-```
-
-### Windows / Linux (Coming Soon)
-
-```bash
-pip install psutil pystray pillow
 ```
 
 ## Usage
@@ -42,7 +29,7 @@ python main.py
 
 ## Configuration
 
-Edit `config.py`:
+Edit `core/config.py`:
 
 ```python
 CPU_LIMIT = 85      # Alert when CPU exceeds this %
@@ -54,26 +41,23 @@ COOLDOWN = 120      # Time between repeated notifications
 
 ## Display
 
-Shows: `C:XX M:XX S:XX`
+The menu bar shows: `C:XX% M:XX%` (with status indicators like `OK` or `STR` for stress).
 
 - **C** = CPU %
 - **M** = Memory %
-- **S** = Swap %
 
 ## Project Structure
 
 ```
 Monarx/
-├── main.py          # Entry point (auto-detects platform)
-├── core/            # Platform-agnostic monitoring logic
+├── main.py          # Entry point
+├── core/            # System monitoring logic
 │   ├── config.py    # Configuration
 │   └── logging.py   # Logging setup
-├── mac/             # macOS implementation
-├── windows/         # Windows implementation (stub)
-└── linux/           # Linux implementation (stub)
+└── mac/             # macOS implementation
 ```
 
-## Auto-Start (macOS)
+## Auto-Start
 
 Create `~/Library/LaunchAgents/com.monarx.plist`:
 
@@ -114,10 +98,6 @@ To stop it:
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.monarx.plist
 ```
-
-## Preview
-
-![Monarx Menu Bar](docs/images/ref.png)
 
 ## License
 

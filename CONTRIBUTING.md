@@ -2,15 +2,13 @@
 
 Thank you for your interest in contributing to **Monarx** 🚀
 
-Monarx is a lightweight system monitoring agent, currently focused on macOS, with plans for Windows and Linux support.
-
-This document explains how to contribute cleanly and safely.
+Monarx is a lightweight macOS-only system monitoring agent. This document explains how to contribute cleanly and safely.
 
 ---
 
-## 1. Project Workflow (Important)
+## 1. Project Workflow
 
-We follow a simple but strict workflow:
+We follow a simple workflow:
 
 1. **Create or pick an Issue**
 2. **Create a branch from `dev`**
@@ -26,14 +24,13 @@ We follow a simple but strict workflow:
 
 - `main` → Stable, release-ready code
 - `dev` → Active development branch
-- Feature / fix branches → Always branch **from `dev`**, never from `main`
+- Feature / fix branches → Always branch **from `dev`**
 
 ### Branch naming examples:
-
 ```
-fix/dock-icon
-feature/windows-agent
-refactor/code-structure
+fix/memory-leak
+feature/detailed-gpu
+refactor/ui-components
 ```
 
 ---
@@ -44,20 +41,10 @@ Before making changes:
 - Check existing Issues
 - If none exist, **create one**
 
-Issues help:
-- Track bugs
-- Discuss design decisions
-- Coordinate platform-specific work
-
 ### Issue Labels
-
-Use these labels when creating issues:
-- `bug` - Report bugs and unexpected behavior
-- `enhancement` - Suggest new features or improvements
-- `refactor` - Code improvements without changing functionality
-- `platform:mac` - macOS-specific issues
-- `platform:windows` - Windows-specific issues
-- `platform:linux` - Linux-specific issues
+- `bug` - Report bugs
+- `enhancement` - Suggest new features
+- `refactor` - Code improvements
 - `good first issue` - Suitable for new contributors
 
 ---
@@ -70,81 +57,41 @@ Each PR should:
 - Target the `dev` branch
 
 ### PR Title Format
-
-Use semantic commit format:
-
 ```
-fix(mac): hide Dock icon for background app
-feature(windows): initial system agent skeleton
-refactor: reorganize monitoring modules
+fix: correct memory pressure calculation
+feature: add system temperature monitoring
+refactor: optimize process scanning
 ```
-
-### PR Description Template
-
-Your PR description should include:
-- **What changed** - Brief summary of changes
-- **Why it was needed** - Context and motivation
-- **Platform impact** - Which platforms are affected
-- **Linked Issue** - Reference with `Closes #12` or `Fixes #12`
 
 ---
 
-## 5. Code Organization Rules
-
-Monarx is structured to support multiple platforms.
-
-### Guidelines
-
-- Shared logic goes in reusable modules
-- Platform-specific code must be isolated
-- Do not mix OS-level hacks into core logic
-
-### Example Structure
+## 5. Code Organization
 
 ```
-core/         # shared logic
-  __init__.py
-  config.py
-mac/          # macOS-specific code
-  __init__.py
-windows/      # Windows-specific code
-  __init__.py
-linux/        # Linux-specific code
-  __init__.py
+core/         # Shared logic (macOS focused)
+mac/          # macOS-specific implementation (AppKit/rumps)
 main.py       # Entry point
 ```
 
 ---
 
-## 6. Platform-Specific Rules
+## 6. Development Rules
 
-### macOS
-
-- Use AppKit / PyObjC responsibly
-- Ensure background-only behavior when required
-- No Dock or Cmd+Tab visibility unless intentional
-
-### Windows / Linux
-
-- Avoid assumptions from macOS behavior
-- Keep implementations modular and replaceable
+- Use AppKit / PyObjC responsibly.
+- Ensure background-only behavior (Accessory policy).
+- No Dock icon unless explicitly configured.
+- Follow PEP 8 style for Python code.
 
 ---
 
 ## 7. Commit Message Style
 
 We follow **semantic commit messages**:
-
 ```
-fix(mac): hide Dock icon using accessory policy
-refactor: reorganize monitoring modules
-feature: add configurable alert thresholds
+fix: fix crash on memory pressure event
+refactor: clean up process menu generation
+feature: add disk usage to menu bar
 ```
-
-This helps with:
-- History readability
-- Future releases
-- Debugging regressions
 
 ---
 

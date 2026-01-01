@@ -15,13 +15,8 @@ What should happen?
 ## Actual Behavior
 What actually happens?
 
-## Platform
-- [ ] macOS
-- [ ] Windows
-- [ ] Linux
-
-## Environment (if applicable)
-- OS version:
+## Environment
+- macOS version:
 - Python version:
 - Monarx version / branch:
 

@@ -18,9 +18,3 @@ What improves after this change?
 
 ## Risks
 Anything that could break?
-
-## Platform Impact
-- [ ] macOS
-- [ ] Windows
-- [ ] Linux
-- [ ] None
