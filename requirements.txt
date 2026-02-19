@@ -1,3 +1,5 @@
 psutil
 rumps
-pyobjc
+pyobjc-framework-Cocoa
+pyobjc-framework-UserNotifications
+pytest

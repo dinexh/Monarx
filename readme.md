@@ -18,7 +18,7 @@ A lightweight macOS menu bar application for monitoring CPU, Memory, and Swap us
 cd ~/tools/Monarx
 python3 -m venv .venv
 source .venv/bin/activate
-pip install psutil rumps pyobjc
+pip install psutil rumps pyobjc-framework-Cocoa
 ```
 
 ## Usage
@@ -70,7 +70,7 @@ Changes to the `web/` directory will **not** trigger Python app tests, and chang
 
 ## Auto-Start
 
-Create `~/Library/LaunchAgents/com.monarx.plist`:
+Create `~/Library/LaunchAgents/com.monarx.plist` (replace `/path/to/Monarx` with your actual path):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -81,19 +81,19 @@ Create `~/Library/LaunchAgents/com.monarx.plist`:
     <string>com.monarx</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/dineshkorukonda/tools/Monarx/.venv/bin/python</string>
-        <string>/Users/dineshkorukonda/tools/Monarx/main.py</string>
+        <string>/path/to/Monarx/.venv/bin/python</string>
+        <string>/path/to/Monarx/main.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/dineshkorukonda/tools/Monarx</string>
+    <string>/path/to/Monarx</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/dineshkorukonda/tools/Monarx/monitor.log</string>
+    <string>/path/to/Monarx/monitor.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/dineshkorukonda/tools/Monarx/monitor.err</string>
+    <string>/path/to/Monarx/monitor.err</string>
 </dict>
 </plist>
 ```
