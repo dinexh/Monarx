@@ -1,4 +1,4 @@
-"""Monarx - macOS menu bar implementation."""
+"""MacMonitor - macOS menu bar implementation."""
 
 import sys
 import uuid
@@ -15,7 +15,7 @@ from core.config import (
 from core import get_stats, get_status, check_thresholds, get_combined_process_info, can_notify
 from core.logging import setup_logging
 
-logger = logging.getLogger('monarx.mac')
+logger = logging.getLogger('macmonitor.mac')
 
 # Icon path — drop any PNG here and it will be picked up automatically.
 _ICON_PATH = Path(__file__).parent / "assets" / "icon.png"
@@ -92,7 +92,7 @@ def _notify_un(center, title, message, subtitle, identifier):
         if _ICON_PATH.exists():
             icon_url = Foundation.NSURL.fileURLWithPath_(str(_ICON_PATH))
             attachment, err = UNNotificationAttachment.attachmentWithIdentifier_URL_options_error_(
-                "monarx-icon", icon_url, None, None
+                "macmonitor-icon", icon_url, None, None
             )
             if attachment and not err:
                 content.setAttachments_([attachment])
@@ -100,7 +100,7 @@ def _notify_un(center, title, message, subtitle, identifier):
                 logger.debug(f"Notification attachment error: {err}")
 
         # Stable ID → same alert replaces itself instead of stacking
-        req_id = identifier or ("monarx." + title.lower().replace(" ", "-"))
+        req_id = identifier or ("macmonitor." + title.lower().replace(" ", "-"))
         request = UNNotificationRequest.requestWithIdentifier_content_trigger_(
             req_id, content, None
         )
@@ -193,13 +193,13 @@ def format_process_name(name, max_length=28):
     return name[:max_length - 1] + "…"
 
 
-class MonarxApp(rumps.App):
+class MacMonitorApp(rumps.App):
     """Menu bar application for system monitoring."""
 
     def __init__(self):
         # No icon in the menu bar — text title only.
         super().__init__(
-            name="Monarx",
+            name="MacMonitor",
             title="Loading...",
             quit_button=None,
         )
@@ -212,7 +212,7 @@ class MonarxApp(rumps.App):
         self.cpu_limit, self.mem_limit, self.swap_limit = load_thresholds()
 
         self._build_menu()
-        logger.info("Monarx app initialized")
+        logger.info("MacMonitor app initialized")
 
     def _build_menu(self):
         """Build the initial placeholder menu."""
@@ -226,7 +226,7 @@ class MonarxApp(rumps.App):
             None,
             rumps.MenuItem("REFRESH", callback=self._refresh),
             rumps.MenuItem("VIEW LOGS", callback=self._view_logs),
-            rumps.MenuItem(f"Monarx v{__version__}", callback=None),
+            rumps.MenuItem(f"MacMonitor v{__version__}", callback=None),
             None,
             rumps.MenuItem("QUIT", callback=self._quit),
         ]
@@ -257,7 +257,7 @@ class MonarxApp(rumps.App):
                 self.mem_limit = mem
                 self.swap_limit = swap
                 save_thresholds(cpu, mem, swap)
-                notify("Monarx", f"Thresholds set: CPU {cpu}% | MEM {mem}% | SWAP {swap}%")
+                notify("MacMonitor", f"Thresholds set: CPU {cpu}% | MEM {mem}% | SWAP {swap}%")
                 logger.info(f"Thresholds updated: CPU={cpu}, Mem={mem}, Swap={swap}")
                 self._update(None)
             except ValueError:
@@ -275,11 +275,11 @@ class MonarxApp(rumps.App):
         name = sender.proc_name
         try:
             os.kill(pid, signal.SIGTERM)
-            notify("Monarx", f"Sent SIGTERM to {name} (PID: {pid})")
+            notify("MacMonitor", f"Sent SIGTERM to {name} (PID: {pid})")
             logger.info(f"Killed process {name} (PID: {pid})")
             self._update(None)
         except Exception as e:
-            notify("Monarx", f"Failed to kill {name}: {e}")
+            notify("MacMonitor", f"Failed to kill {name}: {e}")
             logger.error(f"Error killing process {pid}: {e}")
 
     def _open_process_info(self, sender):
@@ -391,7 +391,7 @@ class MonarxApp(rumps.App):
                 None,
                 rumps.MenuItem("REFRESH", callback=self._refresh),
                 rumps.MenuItem("VIEW LOGS", callback=self._view_logs),
-                rumps.MenuItem(f"Monarx v{__version__}", callback=None),
+                rumps.MenuItem(f"MacMonitor v{__version__}", callback=None),
                 None,
                 rumps.MenuItem("QUIT", callback=self._quit),
             ])
@@ -450,22 +450,22 @@ class MonarxApp(rumps.App):
         """Manual refresh."""
         logger.info("Manual refresh triggered")
         self._update(None)
-        notify("Monarx", "Refreshed")
+        notify("MacMonitor", "Refreshed")
 
     def _view_logs(self, _):
         """Open log file in the default text editor."""
-        log_file = Path.home() / "Library" / "Logs" / "Monarx" / "monarx.log"
+        log_file = Path.home() / "Library" / "Logs" / "MacMonitor" / "macmonitor.log"
         if log_file.exists():
             import subprocess
             subprocess.run(['open', '-t', str(log_file)])
             logger.info(f"Opened log file: {log_file}")
         else:
-            notify("Monarx", "Log file not found yet")
+            notify("MacMonitor", "Log file not found yet")
             logger.warning("Log file not found")
 
     def _quit(self, _):
         """Quit the application."""
-        logger.info("Quitting Monarx")
+        logger.info("Quitting MacMonitor")
         rumps.quit_application()
 
 
@@ -473,18 +473,18 @@ def run():
     """Run the macOS app."""
     setup_logging(log_level=logging.INFO, log_to_file=True)
     logger.info("=" * 50)
-    logger.info(f"Monarx v{__version__} starting up...")
+    logger.info(f"MacMonitor v{__version__} starting up...")
     logger.info(f"Thresholds - CPU: {CPU_LIMIT}%, Memory: {MEM_LIMIT}%, Swap: {SWAP_LIMIT}%")
     logger.info(f"Check interval: {CHECK_EVERY} seconds")
 
     try:
         setup_macos()
         request_notification_permission()
-        app = MonarxApp()
-        logger.info("Monarx app running")
+        app = MacMonitorApp()
+        logger.info("MacMonitor app running")
         app.run()
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         raise
     finally:
-        logger.info("Monarx shutting down...")
+        logger.info("MacMonitor shutting down...")

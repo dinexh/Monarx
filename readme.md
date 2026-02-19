@@ -1,4 +1,4 @@
-# Monarx
+# MacMonitor
 
 A lightweight macOS menu bar application for monitoring CPU, Memory, and Swap usage with detailed memory breakdown and pressure alerts.
 
@@ -15,7 +15,7 @@ A lightweight macOS menu bar application for monitoring CPU, Memory, and Swap us
 ## Installation
 
 ```bash
-cd ~/tools/Monarx
+cd ~/tools/MacMonitor
 python3 -m venv .venv
 source .venv/bin/activate
 pip install psutil rumps pyobjc-framework-Cocoa
@@ -49,13 +49,13 @@ The menu bar shows: `C:XX% M:XX%` (with status indicators like `OK` or `STR` for
 ## Project Structure
 
 ```
-Monarx/
+MacMonitor/
 ├── main.py          # Entry point
 ├── core/            # System monitoring logic
 │   ├── config.py    # Configuration
 │   └── logging.py   # Logging setup
 ├── mac/             # macOS implementation
-└── web/             # Next.js web application (landing page)
+└── web/             # Svelte web application (landing page)
 ```
 
 ## CI/CD
@@ -63,14 +63,14 @@ Monarx/
 This repository uses GitHub Actions with separate workflows for the Python app and web app to ensure they don't interfere with each other:
 
 - **Python App CI** (`.github/workflows/python-app.yml`): Runs on macOS, tests Python code, only triggers on changes outside `web/`
-- **Web App CI** (`.github/workflows/web-app.yml`): Builds and tests the Next.js app, only triggers on changes inside `web/`
+- **Web App CI** (`.github/workflows/web-app.yml`): Builds and tests the Svelte app, only triggers on changes inside `web/`
 - **Combined CI** (`.github/workflows/ci.yml`): Smart workflow that detects which parts changed and runs appropriate tests
 
 Changes to the `web/` directory will **not** trigger Python app tests, and changes to Python files will **not** trigger web app builds.
 
 ## Auto-Start
 
-Create `~/Library/LaunchAgents/com.monarx.plist` (replace `/path/to/Monarx` with your actual path):
+Create `~/Library/LaunchAgents/com.macmonitor.plist` (replace `/path/to/MacMonitor` with your actual path):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -78,22 +78,22 @@ Create `~/Library/LaunchAgents/com.monarx.plist` (replace `/path/to/Monarx` with
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.monarx</string>
+    <string>com.macmonitor</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/Monarx/.venv/bin/python</string>
-        <string>/path/to/Monarx/main.py</string>
+        <string>/path/to/MacMonitor/.venv/bin/python</string>
+        <string>/path/to/MacMonitor/main.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/path/to/Monarx</string>
+    <string>/path/to/MacMonitor</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/path/to/Monarx/monitor.log</string>
+    <string>/path/to/MacMonitor/monitor.log</string>
     <key>StandardErrorPath</key>
-    <string>/path/to/Monarx/monitor.err</string>
+    <string>/path/to/MacMonitor/monitor.err</string>
 </dict>
 </plist>
 ```
@@ -101,13 +101,13 @@ Create `~/Library/LaunchAgents/com.monarx.plist` (replace `/path/to/Monarx` with
 Load and start the agent:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.monarx.plist
+launchctl load ~/Library/LaunchAgents/com.macmonitor.plist
 ```
 
 To stop it:
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.monarx.plist
+launchctl unload ~/Library/LaunchAgents/com.macmonitor.plist
 ```
 
 ## License

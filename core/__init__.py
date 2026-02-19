@@ -10,7 +10,7 @@ from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, COOLDOWN
 
 _last_gc_time = 0
 
-logger = logging.getLogger('monarx.core')
+logger = logging.getLogger('macmonitor.core')
 
 # Cache constant values to avoid repeated subprocess calls
 _PAGE_SIZE = None

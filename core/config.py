@@ -1,4 +1,4 @@
-"""Monarx configuration and threshold persistence."""
+"""MacMonitor configuration and threshold persistence."""
 
 import json
 from pathlib import Path
@@ -21,7 +21,7 @@ COOLDOWN = 120
 
 
 def _config_file() -> Path:
-    path = Path.home() / "Library" / "Application Support" / "Monarx"
+    path = Path.home() / "Library" / "Application Support" / "MacMonitor"
     path.mkdir(parents=True, exist_ok=True)
     return path / "config.json"
 

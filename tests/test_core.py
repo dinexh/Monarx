@@ -1,4 +1,4 @@
-"""Unit and integration tests for Monarx core logic."""
+"""Unit and integration tests for MacMonitor core logic."""
 
 import json
 import sys
