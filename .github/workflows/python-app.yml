@@ -60,8 +60,12 @@ jobs:
     - name: Test imports
       run: |
         python -c "import sys; sys.path.insert(0, '.'); from core import get_stats; from mac import run; print('All imports successful')"
-    
+
     - name: Check platform detection
       run: |
         python -c "import sys; assert sys.platform == 'darwin', 'Must run on macOS'; print('Platform check passed')"
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
 

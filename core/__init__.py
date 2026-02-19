@@ -8,6 +8,8 @@ import gc
 
 from core.config import CPU_LIMIT, MEM_LIMIT, SWAP_LIMIT, COOLDOWN
 
+_last_gc_time = 0
+
 logger = logging.getLogger('monarx.core')
 
 # Cache constant values to avoid repeated subprocess calls
@@ -102,10 +104,13 @@ def get_stats():
     else:
         stats['lag_risk'] = False
             
-    # Trigger lightweight GC occasionally
-    if time.time() % 60 < 5: 
-        gc.collect(1) 
-        
+    # Trigger lightweight GC every ~60 seconds
+    global _last_gc_time
+    now = time.time()
+    if now - _last_gc_time >= 60:
+        gc.collect(1)
+        _last_gc_time = now
+
     return stats
 
 def get_combined_process_info(limit=5):
