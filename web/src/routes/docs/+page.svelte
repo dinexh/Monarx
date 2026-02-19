@@ -2,234 +2,230 @@
   import { onMount } from 'svelte';
 
   const sections = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'capabilities', label: 'Capabilities' },
-    { id: 'installation', label: 'Installation' },
-    { id: 'usage', label: 'Usage' },
+    { id: 'overview',      label: 'Overview'      },
+    { id: 'capabilities',  label: 'Capabilities'  },
+    { id: 'installation',  label: 'Installation'  },
+    { id: 'usage',         label: 'Usage'         },
     { id: 'configuration', label: 'Configuration' },
-    { id: 'auto-start', label: 'Auto-Start' },
+    { id: 'auto-start',    label: 'Auto-Start'    },
   ];
 
-  let activeSection = 'overview';
+  let active = 'overview';
+
+  // ── Config interactive table ──────────────────────
+  const configVars = [
+    { name: 'CPU_LIMIT',   default: '85',  unit: '%',   desc: 'Alert when CPU usage reaches this threshold.' },
+    { name: 'MEM_LIMIT',   default: '80',  unit: '%',   desc: 'Alert when RAM usage reaches this threshold.' },
+    { name: 'SWAP_LIMIT',  default: '20',  unit: '%',   desc: 'Alert when swap usage reaches this threshold.' },
+    { name: 'CHECK_EVERY', default: '5',   unit: 's',   desc: 'How often metrics are sampled. Lower = more responsive, higher CPU cost.' },
+    { name: 'COOLDOWN',    default: '120', unit: 's',   desc: 'Minimum time between repeated alerts for the same metric.' },
+  ];
+
+  let selectedConfig: typeof configVars[0] | null = null;
 
   onMount(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) activeSection = entry.target.id;
-        });
+        entries.forEach((e) => { if (e.isIntersecting) active = e.target.id; });
       },
       { rootMargin: '-30% 0px -60% 0px' }
     );
-
     sections.forEach(({ id }) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
-
     return () => observer.disconnect();
   });
 </script>
 
 <svelte:head>
   <title>Docs — MacMonitor</title>
-  <meta name="description" content="MacMonitor documentation — installation, configuration, and usage guide." />
+  <meta name="description" content="MacMonitor documentation." />
 </svelte:head>
 
 <div class="docs-root">
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-inner">
-      <p class="sidebar-label">Documentation</p>
-      <nav>
-        {#each sections as { id, label }}
-          <a
-            href="#{id}"
-            class="sidebar-link"
-            class:active={activeSection === id}
-          >{label}</a>
-        {/each}
-      </nav>
-      <div class="sidebar-divider"></div>
-      <a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener" class="sidebar-github">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-        </svg>
-        View on GitHub
-      </a>
-    </div>
+    <p class="sidebar-label">Documentation</p>
+    <nav>
+      {#each sections as s}
+        <a href="#{s.id}" class="sidebar-link" class:active={active === s.id}>{s.label}</a>
+      {/each}
+    </nav>
+    <div class="sidebar-sep"></div>
+    <a href="/" class="sidebar-back">← MacMonitor</a>
+    <a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener" class="sidebar-gh">GitHub ↗</a>
   </aside>
 
-  <!-- Main content -->
+  <!-- Content -->
   <main class="content">
 
     <section id="overview" class="doc-section">
-      <h1 class="doc-h1">MacMonitor</h1>
-      <p class="doc-lead">A lightweight macOS menu bar application for real-time system monitoring.</p>
-      <p class="doc-p">
-        MacMonitor lives in your macOS menu bar and shows live CPU and memory usage at a glance.
+      <h1>MacMonitor</h1>
+      <p class="lead">A lightweight macOS menu bar application for real-time system monitoring.</p>
+      <p>
+        MacMonitor lives in your menu bar and shows live CPU and memory usage at a glance.
         It uses native macOS APIs — <code>vm_stat</code>, <code>sysctl</code>, and the
-        UserNotifications framework — to give you accurate, low-overhead system telemetry without
-        running a heavy background service.
+        UserNotifications framework — for accurate, low-overhead telemetry with no background daemon required.
       </p>
-      <div class="badge-row">
-        <span class="badge">Python 3.9+</span>
-        <span class="badge">macOS 12+</span>
-        <span class="badge">MIT License</span>
-        <span class="badge green">v1.0.0</span>
+      <div class="tag-row">
+        <span class="tag">Python 3.9+</span>
+        <span class="tag">macOS 12+</span>
+        <span class="tag">MIT License</span>
+        <span class="tag green">v1.0.0</span>
       </div>
     </section>
 
     <section id="capabilities" class="doc-section">
-      <h2 class="doc-h2">Capabilities</h2>
+      <h2>Capabilities</h2>
 
-      <div class="cap-grid">
-        <div class="cap-card">
-          <div class="cap-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          </div>
-          <div>
-            <h3>Native Menu Bar UI</h3>
-            <p>The menu bar title updates every 5 seconds: <code>C:XX% M:XX%</code>. When memory pressure or resource usage is elevated, it switches to <code>WARN</code>, <code>HIGH</code>, or <code>STRESS</code> mode automatically.</p>
-          </div>
+      <div class="cap-list">
+        <div class="cap-item">
+          <h3>Native Menu Bar UI</h3>
+          <p>
+            The title updates every 5 seconds: <code>C:XX% M:XX%</code>. When pressure or usage is elevated,
+            it switches to <code>WARN</code>, <code>HIGH</code>, or <code>STRESS</code> prefix automatically.
+            No app window, no Dock icon.
+          </p>
         </div>
 
-        <div class="cap-card">
-          <div class="cap-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
-          </div>
-          <div>
-            <h3>Memory Breakdown</h3>
-            <p>MacMonitor reads <code>vm_stat</code> and <code>memory_pressure</code> to split RAM into four categories: <strong>Wired</strong>, <strong>Active</strong>, <strong>Compressed</strong>, and <strong>Cached</strong>. It also tracks lag risk when Compressed exceeds Active memory.</p>
-          </div>
+        <div class="cap-item">
+          <h3>Memory Breakdown</h3>
+          <p>
+            Reads <code>vm_stat</code> and <code>memory_pressure</code> to decompose RAM into four categories:
+            <strong>Wired</strong>, <strong>Active</strong>, <strong>Compressed</strong>, and <strong>Cached</strong>.
+            Flags lag risk when Compressed memory exceeds Active.
+          </p>
         </div>
 
-        <div class="cap-card">
-          <div class="cap-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3"/></svg>
-          </div>
-          <div>
-            <h3>Process Intelligence</h3>
-            <p>The top 5 CPU and memory consumers are listed in the dropdown in real time. You can kill any process directly from the menu without opening Activity Monitor. Chrome, Electron, and Slack are automatically tagged as GPU-heavy.</p>
-          </div>
+        <div class="cap-item">
+          <h3>Process Intelligence</h3>
+          <p>
+            Top 5 CPU and memory consumers listed in real time.
+            Kill any process directly from the dropdown without opening Activity Monitor.
+            Chrome, Electron, Slack, and Discord are auto-tagged as GPU-heavy.
+          </p>
         </div>
 
-        <div class="cap-card">
-          <div class="cap-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </div>
-          <div>
-            <h3>Native Alerts</h3>
-            <p>Threshold breaches trigger macOS UserNotifications — the same alert system used by Calendar and Mail. Alerts respect a 120-second cooldown per metric to prevent notification fatigue. Falls back to <code>osascript</code> if the framework is unavailable.</p>
-          </div>
+        <div class="cap-item">
+          <h3>Native Alerts</h3>
+          <p>
+            Threshold breaches trigger <strong>UserNotifications</strong> alerts — the same system used by Calendar and Mail.
+            Alerts use a stable identifier so they replace each other in-place rather than stacking.
+            120-second cooldown per metric.
+          </p>
         </div>
       </div>
     </section>
 
     <section id="installation" class="doc-section">
-      <h2 class="doc-h2">Installation</h2>
-      <p class="doc-p">MacMonitor requires Python 3.9 or later and runs on macOS 12 Monterey and above.</p>
+      <h2>Installation</h2>
+      <p>Requires Python 3.9+ and macOS 12 Monterey or later.</p>
 
-      <h3 class="doc-h3">1. Clone the repository</h3>
+      <h3>1. Clone</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> git clone https://github.com/dinexh/Monarx.git MacMonitor</div>
-        <div class="code-line"><span class="prompt">$</span> cd MacMonitor</div>
+        <div class="code-line"><span class="p">$</span> git clone https://github.com/dinexh/Monarx.git MacMonitor</div>
+        <div class="code-line"><span class="p">$</span> cd MacMonitor</div>
       </div>
 
-      <h3 class="doc-h3">2. Create a virtual environment</h3>
+      <h3>2. Virtual environment</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> python3 -m venv .venv</div>
-        <div class="code-line"><span class="prompt">$</span> source .venv/bin/activate</div>
+        <div class="code-line"><span class="p">$</span> python3 -m venv .venv</div>
+        <div class="code-line"><span class="p">$</span> source .venv/bin/activate</div>
       </div>
 
-      <h3 class="doc-h3">3. Install dependencies</h3>
+      <h3>3. Dependencies</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> pip install -r requirements.txt</div>
+        <div class="code-line"><span class="p">$</span> pip install -r requirements.txt</div>
       </div>
-      <p class="doc-note">Dependencies: <code>psutil</code>, <code>rumps</code>, <code>pyobjc-framework-Cocoa</code>, <code>pyobjc-framework-UserNotifications</code></p>
+      <p class="note">Installs: <code>psutil</code> · <code>rumps</code> · <code>pyobjc-framework-Cocoa</code> · <code>pyobjc-framework-UserNotifications</code> · <code>pytest</code></p>
     </section>
 
     <section id="usage" class="doc-section">
-      <h2 class="doc-h2">Usage</h2>
-      <p class="doc-p">Run the app with Python from the project root:</p>
+      <h2>Usage</h2>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> python main.py</div>
+        <div class="code-line"><span class="p">$</span> python main.py</div>
       </div>
-      <p class="doc-p">
-        MacMonitor will appear in your menu bar as <code>C:XX% M:XX%</code> immediately.
-        Click it to open the dropdown showing the full system snapshot.
-      </p>
+      <p>MacMonitor appears in your menu bar immediately as <code>C:XX% M:XX%</code>. Click it to open the dropdown.</p>
 
-      <h3 class="doc-h3">Menu bar states</h3>
-      <div class="state-table">
+      <h3>Menu bar states</h3>
+      <div class="state-list">
         <div class="state-row">
-          <span class="state-code normal">C:43% M:71%</span>
-          <span class="state-label">Normal — all metrics within thresholds</span>
+          <code class="state normal">C:43% M:71%</code>
+          <span>All metrics within configured thresholds</span>
         </div>
         <div class="state-row">
-          <span class="state-code warn">WARN C:58% M:74%</span>
-          <span class="state-label">Memory pressure detected at WARN level</span>
+          <code class="state warn">WARN C:58% M:74%</code>
+          <span>Memory pressure at WARN level</span>
         </div>
         <div class="state-row">
-          <span class="state-code high">HIGH C:91% M:83%</span>
-          <span class="state-label">Memory pressure is HIGH</span>
+          <code class="state high">HIGH C:91% M:83%</code>
+          <span>Memory pressure is HIGH</span>
         </div>
         <div class="state-row">
-          <span class="state-code stress">STRESS C:35% M:76%</span>
-          <span class="state-label">Compressed memory exceeds Active memory (lag risk)</span>
+          <code class="state stress">STRESS C:35% M:76%</code>
+          <span>Compressed memory exceeds Active (lag risk)</span>
         </div>
       </div>
     </section>
 
     <section id="configuration" class="doc-section">
-      <h2 class="doc-h2">Configuration</h2>
-      <p class="doc-p">
-        Thresholds can be changed at runtime via the <strong>Settings → Change Thresholds</strong> menu item,
-        or by editing <code>core/config.py</code>. Saved values persist in
-        <code>~/Library/Application Support/MacMonitor/config.json</code>.
+      <h2>Configuration</h2>
+      <p>
+        Change thresholds at runtime via <strong>Settings → Change Thresholds</strong> in the dropdown,
+        or edit <code>core/config.py</code> directly.
+        Values persist in <code>~/Library/Application Support/MacMonitor/config.json</code>.
       </p>
 
+      <p class="section-hint">Click a row to see details.</p>
+
+      <!-- Interactive config table -->
       <div class="config-table">
-        <div class="config-row header">
-          <span>Variable</span><span>Default</span><span>Description</span>
-        </div>
-        <div class="config-row">
-          <code>CPU_LIMIT</code><code>85</code><span>Alert when CPU % ≥ this value</span>
-        </div>
-        <div class="config-row">
-          <code>MEM_LIMIT</code><code>80</code><span>Alert when RAM % ≥ this value</span>
-        </div>
-        <div class="config-row">
-          <code>SWAP_LIMIT</code><code>20</code><span>Alert when Swap % ≥ this value</span>
-        </div>
-        <div class="config-row">
-          <code>CHECK_EVERY</code><code>5</code><span>Sampling interval in seconds</span>
-        </div>
-        <div class="config-row">
-          <code>COOLDOWN</code><code>120</code><span>Minimum seconds between repeated alerts</span>
-        </div>
+        {#each configVars as v}
+          <button
+            class="config-row"
+            class:active={selectedConfig?.name === v.name}
+            on:click={() => selectedConfig = selectedConfig?.name === v.name ? null : v}
+          >
+            <code class="config-name">{v.name}</code>
+            <span class="config-val">{v.default}{v.unit}</span>
+            <span class="config-arrow">{selectedConfig?.name === v.name ? '↑' : '↓'}</span>
+          </button>
+          {#if selectedConfig?.name === v.name}
+            <div class="config-detail">
+              <p>{v.desc}</p>
+              <div class="code-block">
+                <div class="code-line">
+                  <span class="p">#</span>
+                  <span>core/config.py</span>
+                </div>
+                <div class="code-line">
+                  <span class="p" style="color:#888">{v.name}</span>
+                  <span style="color:#555"> = </span>
+                  <span style="color:#e2e8f0">{v.default}</span>
+                  <span style="color:#555">  # {v.desc.split('.')[0].toLowerCase()}</span>
+                </div>
+              </div>
+            </div>
+          {/if}
+        {/each}
       </div>
-
-      <p class="doc-note">
-        Lowering <code>CHECK_EVERY</code> increases responsiveness but also CPU usage.
-        For battery-sensitive use, consider 10–30 seconds.
-      </p>
     </section>
 
     <section id="auto-start" class="doc-section">
-      <h2 class="doc-h2">Auto-Start on Login</h2>
-      <p class="doc-p">
-        Create a LaunchAgent plist so MacMonitor starts automatically when you log in.
-        Replace <code>/path/to/MacMonitor</code> with the absolute path to your clone.
+      <h2>Auto-Start on Login</h2>
+      <p>
+        Create a LaunchAgent plist to start MacMonitor automatically at login.
+        Replace <code>/path/to/MacMonitor</code> with your actual clone path.
       </p>
 
-      <h3 class="doc-h3">1. Create the plist file</h3>
+      <h3>1. Create the plist</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> nano ~/Library/LaunchAgents/com.macmonitor.plist</div>
+        <div class="code-line"><span class="p">$</span> nano ~/Library/LaunchAgents/com.macmonitor.plist</div>
       </div>
 
-      <div class="code-block xml">
-        <pre>{`<?xml version="1.0" encoding="UTF-8"?>
+      <div class="code-block">
+        <pre class="xml-block">{`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -243,122 +239,107 @@
     </array>
     <key>WorkingDirectory</key>
     <string>/path/to/MacMonitor</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
 </dict>
 </plist>`}</pre>
       </div>
 
-      <h3 class="doc-h3">2. Load the agent</h3>
+      <h3>2. Load the agent</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> launchctl load ~/Library/LaunchAgents/com.macmonitor.plist</div>
+        <div class="code-line"><span class="p">$</span> launchctl load ~/Library/LaunchAgents/com.macmonitor.plist</div>
       </div>
 
-      <h3 class="doc-h3">Unload / stop</h3>
+      <h3>Unload</h3>
       <div class="code-block">
-        <div class="code-line"><span class="prompt">$</span> launchctl unload ~/Library/LaunchAgents/com.macmonitor.plist</div>
+        <div class="code-line"><span class="p">$</span> launchctl unload ~/Library/LaunchAgents/com.macmonitor.plist</div>
       </div>
 
-      <h3 class="doc-h3">Log files</h3>
-      <p class="doc-p">
-        MacMonitor writes logs to <code>~/Library/Logs/MacMonitor/macmonitor.log</code>.
-        You can open them directly from the menu via <strong>View Logs</strong>.
-      </p>
+      <h3>Log files</h3>
+      <p>MacMonitor writes logs to <code>~/Library/Logs/MacMonitor/macmonitor.log</code>.
+      Open them from the menu via <strong>View Logs</strong>.</p>
     </section>
 
     <div class="doc-footer">
-      <p>© 2026 MacMonitor · <a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener">GitHub</a> · MIT License</p>
+      <p>Built with [<a href="https://www.python.org" target="_blank" rel="noopener">Python</a>]. View [<a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener">source</a>].</p>
+      <p>Made by [<a href="https://dineshkorukonda.in" target="_blank" rel="noopener">Dinesh Korukonda</a>].</p>
     </div>
   </main>
 
-  <!-- Right TOC -->
-  <div class="toc">
-    <p class="toc-label">On this page</p>
-    {#each sections as { id, label }}
-      <a href="#{id}" class="toc-link" class:active={activeSection === id}>{label}</a>
+  <!-- Right TOC dots -->
+  <nav class="toc-dots" aria-label="On this page">
+    {#each sections as s}
+      <a href="#{s.id}" class="toc-dot" class:active={active === s.id} title={s.label}></a>
     {/each}
-  </div>
+  </nav>
 </div>
 
 <style>
   .docs-root {
     display: grid;
-    grid-template-columns: 220px 1fr 180px;
+    grid-template-columns: 200px 1fr 36px;
     min-height: 100vh;
     padding-top: 60px;
-    max-width: 1280px;
+    max-width: 1160px;
     margin: 0 auto;
   }
 
-  /* Sidebar */
+  /* ── Sidebar ─────────────────────────────────────── */
   .sidebar {
     position: sticky;
     top: 60px;
     height: calc(100vh - 60px);
     overflow-y: auto;
+    padding: 40px 24px 40px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     border-right: 1px solid var(--border);
-    padding: 32px 0;
-  }
-
-  .sidebar-inner {
-    padding: 0 24px;
   }
 
   .sidebar-label {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 12px;
+    color: var(--dim);
+    margin-bottom: 10px;
   }
 
   .sidebar-link {
     display: block;
-    padding: 7px 12px;
     font-size: 13.5px;
-    color: var(--text-muted);
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-    margin-bottom: 2px;
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 4px;
     border-left: 2px solid transparent;
   }
 
-  .sidebar-link:hover {
-    color: #fff;
-    background: var(--white-glow);
-  }
+  .sidebar-link:hover { color: var(--text); }
 
   .sidebar-link.active {
-    color: #fff;
-    border-left-color: #3b82f6;
-    background: rgba(59,130,246,0.06);
+    color: var(--text);
+    border-left-color: var(--text);
+    background: var(--surface);
   }
 
-  .sidebar-divider {
+  .sidebar-sep {
     height: 1px;
     background: var(--border);
-    margin: 20px 0;
+    margin: 20px 0 16px;
   }
 
-  .sidebar-github {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .sidebar-back, .sidebar-gh {
     font-size: 12.5px;
-    color: var(--text-dim);
-    padding: 6px 12px;
-    border-radius: 6px;
-    transition: color 0.15s;
+    color: var(--dim);
+    padding: 4px 10px;
   }
 
-  .sidebar-github:hover { color: #fff; }
+  .sidebar-back:hover, .sidebar-gh:hover { color: var(--muted); }
 
-  /* Content */
+  /* ── Content ─────────────────────────────────────── */
   .content {
-    padding: 48px 48px 80px;
+    padding: 48px 56px 80px 56px;
     min-width: 0;
   }
 
@@ -368,297 +349,306 @@
     margin-bottom: 64px;
   }
 
-  .doc-section:last-of-type {
-    border-bottom: none;
-  }
+  .doc-section:last-of-type { border-bottom: none; }
 
-  .doc-h1 {
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    margin-bottom: 12px;
-  }
-
-  .doc-lead {
-    font-size: 18px;
-    color: var(--text-muted);
-    margin-bottom: 20px;
-    line-height: 1.6;
-  }
-
-  .doc-h2 {
-    font-size: 24px;
+  h1 {
+    font-size: 36px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
+    color: var(--text);
   }
 
-  .doc-h3 {
-    font-size: 15px;
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  h3 {
+    font-size: 14px;
     font-weight: 600;
     color: #ccc;
     margin: 28px 0 10px;
   }
 
-  .doc-p {
-    font-size: 14.5px;
-    color: var(--text-muted);
+  .lead {
+    font-size: 17px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.65;
+  }
+
+  p {
+    font-size: 14px;
+    color: var(--muted);
     line-height: 1.75;
     margin-bottom: 16px;
   }
 
-  .doc-note {
+  .note {
+    font-size: 12.5px;
+    color: var(--dim);
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .section-hint {
     font-size: 13px;
-    color: #555;
-    line-height: 1.65;
-    padding: 12px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-top: 16px;
+    color: var(--dim);
+    margin-bottom: 12px;
   }
 
   code {
     font-family: var(--mono);
     font-size: 0.88em;
-    color: #a5b4fc;
-    background: rgba(165,180,252,0.08);
-    padding: 2px 6px;
-    border-radius: 4px;
+    color: #999;
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 3px;
   }
 
-  .badge-row {
+  strong { color: #ccc; font-weight: 500; }
+
+  .tag-row {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     margin-top: 16px;
   }
 
-  .badge {
+  .tag {
     font-size: 11.5px;
-    font-weight: 500;
-    padding: 4px 12px;
-    border-radius: 100px;
-    background: var(--surface-2);
-    border: 1px solid var(--border-2);
-    color: var(--text-muted);
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--dim);
   }
 
-  .badge.green { color: #22c55e; border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.06); }
+  .tag.green { color: var(--muted); }
 
-  /* Capabilities */
-  .cap-grid {
+  /* ── Capabilities ────────────────────────────────── */
+  .cap-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
   }
 
-  .cap-card {
-    display: flex;
-    gap: 16px;
-    padding: 20px;
-    background: var(--surface);
-    border-radius: 10px;
-    border: 1px solid var(--border);
+  .cap-item {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
   }
 
-  .cap-icon {
-    flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    background: var(--bg);
-    border: 1px solid var(--border-2);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #555;
-    margin-top: 2px;
-  }
+  .cap-item:last-child { border-bottom: none; }
 
-  .cap-card h3 {
+  .cap-item h3 {
     font-size: 14px;
     font-weight: 600;
-    margin-bottom: 6px;
-    color: #e2e8f0;
+    color: var(--text);
+    margin: 0 0 8px;
   }
 
-  .cap-card p {
+  .cap-item p {
     font-size: 13.5px;
-    color: var(--text-muted);
-    line-height: 1.65;
+    margin: 0;
   }
 
-  /* Code blocks */
+  /* ── Code blocks ─────────────────────────────────── */
   .code-block {
     background: var(--surface);
-    border: 1px solid var(--border-2);
-    border-radius: 9px;
-    padding: 14px 18px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 14px 16px;
     margin: 10px 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-
-  .code-block.xml {
-    overflow-x: auto;
-  }
-
-  .code-block pre {
-    font-family: var(--mono);
-    font-size: 12.5px;
-    color: #888;
-    line-height: 1.6;
-    white-space: pre;
+    gap: 7px;
   }
 
   .code-line {
     display: flex;
     gap: 10px;
-    align-items: baseline;
     font-family: var(--mono);
     font-size: 13px;
+    color: var(--muted);
+    align-items: baseline;
+    flex-wrap: wrap;
   }
 
-  .prompt {
-    color: #3b82f6;
-    flex-shrink: 0;
+  .p { color: var(--dim); flex-shrink: 0; }
+
+  .xml-block {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #666;
+    line-height: 1.65;
+    white-space: pre;
+    overflow-x: auto;
   }
 
-  /* State table */
-  .state-table {
+  /* ── States ──────────────────────────────────────── */
+  .state-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
     margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
   }
 
   .state-row {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 10px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    gap: 20px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    color: var(--muted);
   }
 
-  .state-code {
+  .state-row:last-child { border-bottom: none; }
+
+  .state {
     font-family: var(--mono);
     font-size: 12px;
     font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 5px;
-    white-space: nowrap;
-    min-width: 160px;
+    width: 180px;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 0;
   }
 
-  .state-code.normal { color: #e2e8f0; background: rgba(255,255,255,0.05); }
-  .state-code.warn { color: #f59e0b; background: rgba(245,158,11,0.1); }
-  .state-code.high { color: #ef4444; background: rgba(239,68,68,0.1); }
-  .state-code.stress { color: #f97316; background: rgba(249,115,22,0.1); }
+  .state.normal { color: var(--text); }
+  .state.warn   { color: var(--muted); }
+  .state.high   { color: var(--muted); }
+  .state.stress { color: var(--muted); }
 
-  .state-label {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
-  /* Config table */
+  /* ── Config table ────────────────────────────────── */
   .config-table {
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 5px;
     overflow: hidden;
     margin: 16px 0;
   }
 
   .config-row {
-    display: grid;
-    grid-template-columns: 140px 80px 1fr;
-    gap: 12px;
-    padding: 12px 16px;
-    font-size: 13px;
-    border-bottom: 1px solid var(--border);
+    display: flex;
     align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    cursor: pointer;
+    text-align: left;
   }
 
-  .config-row:last-child { border-bottom: none; }
+  .config-row:last-of-type { border-bottom: none; }
+  .config-row:hover { background: var(--surface); }
+  .config-row.active { background: var(--surface); border-bottom-color: var(--border); }
 
-  .config-row.header {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    background: var(--surface-2);
-  }
-
-  .config-row span { color: var(--text-muted); }
-
-  /* Footer */
-  .doc-footer {
-    padding-top: 32px;
-    text-align: center;
+  .config-name {
+    font-family: var(--mono);
     font-size: 13px;
-    color: var(--text-dim);
+    color: #aaa;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 130px;
+    flex-shrink: 0;
   }
 
-  .doc-footer a { color: #555; transition: color 0.15s; }
-  .doc-footer a:hover { color: #fff; }
-
-  /* Right TOC */
-  .toc {
-    position: sticky;
-    top: 80px;
-    height: fit-content;
-    padding: 48px 16px 48px 24px;
+  .config-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
   }
 
-  .toc-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
+  .config-arrow {
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .config-detail {
+    padding: 16px 18px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #050505;
+  }
+
+  .config-detail p {
+    font-size: 13px;
     margin-bottom: 12px;
   }
 
-  .toc-link {
+  /* ── Footer ──────────────────────────────────────── */
+  .doc-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 16px;
+  }
+
+  .doc-footer p { font-size: 13px; color: var(--dim); }
+  .doc-footer a { color: var(--dim); border-bottom: 1px solid #222; }
+  .doc-footer a:hover { color: var(--muted); }
+
+  /* ── Right TOC dots ──────────────────────────────── */
+  .toc-dots {
+    position: sticky;
+    top: 50vh;
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 48px;
+    align-items: center;
+  }
+
+  .toc-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    background: transparent;
     display: block;
-    font-size: 12.5px;
-    color: var(--text-dim);
-    padding: 5px 0;
-    border-left: 2px solid transparent;
-    padding-left: 10px;
-    transition: color 0.15s, border-color 0.15s;
   }
 
-  .toc-link:hover { color: #aaa; }
-
-  .toc-link.active {
-    color: #fff;
-    border-left-color: #3b82f6;
+  .toc-dot.active {
+    background: var(--text);
+    border-color: var(--text);
   }
 
-  @media (max-width: 1100px) {
-    .toc { display: none; }
-    .docs-root { grid-template-columns: 200px 1fr; }
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .toc-dots { display: none; }
+    .docs-root { grid-template-columns: 180px 1fr; }
   }
 
-  @media (max-width: 700px) {
-    .docs-root { grid-template-columns: 1fr; }
+  @media (max-width: 640px) {
+    .docs-root { grid-template-columns: 1fr; padding-top: 60px; }
     .sidebar {
       position: static;
       height: auto;
       border-right: none;
       border-bottom: 1px solid var(--border);
-      padding: 20px 0;
+      padding: 24px 20px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px;
+      overflow: visible;
     }
+    .sidebar-label, .sidebar-sep, .sidebar-back, .sidebar-gh { display: none; }
+    .sidebar-link { padding: 5px 10px; font-size: 12.5px; }
     .content { padding: 32px 20px; }
-    .state-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .state-code { min-width: unset; }
-    .config-row { grid-template-columns: 1fr 60px; }
-    .config-row span { display: none; }
-    .config-row.header span:last-child { display: none; }
+    .state { width: 140px; }
   }
 </style>

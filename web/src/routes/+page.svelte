@@ -1,827 +1,901 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import MenuBarMockup from '$lib/components/MenuBarMockup.svelte';
-  import HowItWorks from '$lib/components/HowItWorks.svelte';
+  import { onMount, onDestroy } from 'svelte';
 
-  // Scroll reveal
-  onMount(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-          }
-        });
-      },
-      { threshold: 0.12 }
-    );
-
-    document.querySelectorAll('.reveal, .stagger').forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  });
-
-  const features = [
+  // ── App state snapshots ───────────────────────────
+  const snapshots = [
     {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-      title: 'Real-Time Stats',
-      desc: 'CPU and memory usage sampled every 5 seconds and displayed live in your menu bar.'
+      label: 'C:20% M:70%',
+      health: 'OK Pressure | HEALTHY',
+      cpu: 20.8, mem: 70.3, swap: 17.5,
+      memTotal: 8.0,
+      wired: 1.44, active: 2.32, compressed: 1.30, cached: 2.31,
+      cpuStatus: 'OK', gpuActivity: 'IDLE',
+      cpuProcs: [
+        { name: '2.1.47', pct: '31.7%' },
+        { name: 'com.apple.WebKit....GPU [GPU]', pct: '7.3%' },
+        { name: 'IntelligencePlatformComp...', pct: '6.3%' },
+        { name: 'ControlCenter', pct: '5.8%' },
+        { name: 'Safari', pct: '5.1%' },
+      ],
+      memProcs: [
+        { name: 'com.appl....WebContent [GPU]', pct: '5.3%' },
+        { name: '2.1.47', pct: '3.9%' },
+        { name: 'Safari', pct: '1.6%' },
+        { name: 'com.appl....WebContent [GPU]', pct: '1.2%' },
+        { name: 'ghostty', pct: '1.1%' },
+      ],
     },
     {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`,
-      title: 'Memory Breakdown',
-      desc: 'Wired, Active, Compressed, and Cached — the full macOS memory picture at a glance.'
+      label: 'WARN C:58% M:74%',
+      health: 'WARN Pressure | HEALTHY',
+      cpu: 58.2, mem: 74.1, swap: 19.0,
+      memTotal: 8.0,
+      wired: 2.10, active: 3.40, compressed: 3.80, cached: 1.20,
+      cpuStatus: 'WARN', gpuActivity: 'MODERATE',
+      cpuProcs: [
+        { name: 'Xcode', pct: '24.1%' },
+        { name: 'com.apple.WebKit....GPU [GPU]', pct: '18.5%' },
+        { name: 'node', pct: '9.2%' },
+        { name: 'Simulator', pct: '7.8%' },
+        { name: 'Safari', pct: '4.3%' },
+      ],
+      memProcs: [
+        { name: 'Xcode', pct: '12.4%' },
+        { name: 'Simulator', pct: '8.1%' },
+        { name: 'com.appl....WebContent [GPU]', pct: '6.9%' },
+        { name: 'node', pct: '4.2%' },
+        { name: 'Safari', pct: '2.1%' },
+      ],
     },
     {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3"/></svg>`,
-      title: 'Process Intelligence',
-      desc: 'Top CPU and memory consumers listed in real time. Kill any process directly from the menu.'
+      label: 'HIGH C:91% M:83%',
+      health: 'HIGH Pressure | STRESSED',
+      cpu: 91.2, mem: 83.0, swap: 22.0,
+      memTotal: 8.0,
+      wired: 2.80, active: 2.10, compressed: 4.90, cached: 0.60,
+      cpuStatus: 'HIGH', gpuActivity: 'HEAVY',
+      cpuProcs: [
+        { name: 'Xcode', pct: '41.3%' },
+        { name: 'Simulator', pct: '22.7%' },
+        { name: 'com.apple.WebKit....GPU [GPU]', pct: '15.1%' },
+        { name: 'node', pct: '12.4%' },
+        { name: 'kernel_task', pct: '6.1%' },
+      ],
+      memProcs: [
+        { name: 'Xcode', pct: '18.3%' },
+        { name: 'Simulator', pct: '14.2%' },
+        { name: 'com.appl....WebContent [GPU]', pct: '8.7%' },
+        { name: 'node', pct: '6.4%' },
+        { name: 'kernel_task', pct: '3.2%' },
+      ],
     },
-    {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
-      title: 'Native Alerts',
-      desc: 'macOS UserNotifications alerts when any threshold is crossed — no third-party push service.'
-    },
-    {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
-      title: 'Pressure Detection',
-      desc: 'System memory pressure and lag risk are tracked via native sysctl — not just percentages.'
-    },
-    {
-      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-      title: 'Minimal Footprint',
-      desc: 'Pure Python, no Electron. Lives in your menu bar with near-zero CPU overhead.'
-    }
   ];
 
-  const installSteps = [
-    { cmd: 'git clone https://github.com/dinexh/Monarx.git MacMonitor', comment: '# clone the repo' },
-    { cmd: 'cd MacMonitor && python3 -m venv .venv', comment: '# create virtualenv' },
-    { cmd: 'source .venv/bin/activate && pip install -r requirements.txt', comment: '# install deps' },
-    { cmd: 'python main.py', comment: '# launch' },
+  let snapIdx = 0;
+  let snap = snapshots[0];
+  let autoInterval: ReturnType<typeof setInterval>;
+  let isAuto = true;
+
+  function bar(pct: number): string {
+    const filled = Math.min(10, Math.round(pct / 100 * 10));
+    return '[' + '■'.repeat(filled) + '□'.repeat(10 - filled) + ']';
+  }
+
+  // Expanded process row
+  let expandedCpuIdx: number | null = null;
+  let expandedMemIdx: number | null = null;
+
+  function toggleCpu(i: number) {
+    expandedCpuIdx = expandedCpuIdx === i ? null : i;
+    expandedMemIdx = null;
+  }
+  function toggleMem(i: number) {
+    expandedMemIdx = expandedMemIdx === i ? null : i;
+    expandedCpuIdx = null;
+  }
+
+  function setSnap(i: number) {
+    snapIdx = i;
+    snap = snapshots[i];
+    expandedCpuIdx = null;
+    expandedMemIdx = null;
+    if (!isAuto) clearInterval(autoInterval);
+    isAuto = false;
+  }
+
+  function startAuto() {
+    isAuto = true;
+    autoInterval = setInterval(() => {
+      snapIdx = (snapIdx + 1) % snapshots.length;
+      snap = snapshots[snapIdx];
+      expandedCpuIdx = null;
+      expandedMemIdx = null;
+    }, 3000);
+  }
+
+  // ── How It Works ─────────────────────────────────
+  const steps = [
+    {
+      num: '01', title: 'Collect',
+      desc: 'Every 5 seconds, native macOS APIs are called to sample the full system state.',
+      code: `vm_stat | grep "Pages"
+sysctl -n vm.memory_pressure
+psutil.cpu_percent(interval=None)
+psutil.process_iter(['pid','name','cpu_percent'])`
+    },
+    {
+      num: '02', title: 'Analyze',
+      desc: 'Raw values are structured into a stats dict. Memory is decomposed. Lag risk is flagged when Compressed > Active.',
+      code: `stats = {
+  'cpu': 43.2, 'mem': 71.0,
+  'pressure': 'OK', 'lag_risk': False,
+  'macos_mem': {
+    'wired': 3.2, 'active': 4.8,
+    'compressed': 2.1, 'cached': 1.5
+  }
+}`
+    },
+    {
+      num: '03', title: 'Alert',
+      desc: 'Threshold breaches fire native macOS UserNotifications with a 120-second cooldown per metric.',
+      code: `notify("High CPU", "CPU at 91.2%",
+       identifier="macmonitor.high-cpu")
+# Stable ID → replaces existing alert
+# Falls back to osascript if needed`
+    },
+    {
+      num: '04', title: 'Display',
+      desc: 'The menu bar title updates every tick. Dropdown shows the full breakdown with live process data.',
+      code: `# Normal:  C:43% M:71%
+# Warning: WARN C:58% M:74%
+# High:    HIGH C:91% M:83%
+# Stress:  STRESS C:35% M:76%`
+    },
   ];
+  let activeStep = 0;
+
+  // ── Features tabs ────────────────────────────────
+  const featureTabs = [
+    {
+      label: 'Menu Bar',
+      content: `macmonitor ~/
+
+$ python main.py
+
+C:43% M:71%   ← live in your menu bar
+
+States:
+  C:XX% M:XX%          normal
+  WARN C:XX% M:XX%     pressure warn
+  HIGH C:XX% M:XX%     pressure high
+  STRESS C:XX% M:XX%   lag risk detected
+
+Refreshes every 5 seconds. Click to expand.`
+    },
+    {
+      label: 'Memory',
+      content: `RAM  [■■■■■■■□□□]  71.0% of 16.0 GB
+
+  Wired:       3.20 GB
+  Active:      4.80 GB
+  Compressed:  2.10 GB   ← high if > Active
+  Cached:      1.50 GB
+
+Swap [■■□□□□□□□□]  18.0%
+
+Memory pressure: OK
+Lag risk:        False`
+    },
+    {
+      label: 'Processes',
+      content: `TOP CPU PROCESSES:
+  Google Chrome:           18.4%  [GPU]
+  Xcode:                   12.1%
+  WindowServer:             6.7%  [GPU]
+  kernel_task:              4.2%
+  mds_stores:               3.1%  [Spotlight]
+
+TOP MEMORY PROCESSES:
+  Xcode:                    8.2%
+  Google Chrome:            6.5%  [GPU]
+  Simulator:                4.1%
+
+Each row → Kill Process / Activity Monitor`
+    },
+    {
+      label: 'Alerts',
+      content: `[UNNotifications] High CPU
+  body:       "CPU at 91.2%"
+  id:         macmonitor.high-cpu
+  cooldown:   120s
+
+[UNNotifications] Memory Pressure
+  body:       "Status: HIGH"
+  id:         macmonitor.pressure
+
+[UNNotifications] Lag Risk
+  body:       "Compressed > Active Memory"
+  id:         macmonitor.lag-risk`
+    },
+  ];
+  let activeTab = 0;
+
+  // ── Install copy ─────────────────────────────────
+  const installCmd = `git clone https://github.com/dinexh/Monarx.git MacMonitor
+cd MacMonitor
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python main.py`;
 
   let copied = false;
-  function copyInstall() {
-    const text = installSteps.map(s => s.cmd).join('\n');
-    navigator.clipboard.writeText(text);
+  function copyCmd() {
+    navigator.clipboard.writeText(installCmd);
     copied = true;
     setTimeout(() => (copied = false), 2000);
   }
+
+  onMount(() => startAuto());
+  onDestroy(() => clearInterval(autoInterval));
 </script>
 
-<svelte:head>
-  <title>MacMonitor — macOS System Monitor</title>
-</svelte:head>
+<svelte:head><title>MacMonitor — macOS System Monitor</title></svelte:head>
 
-<!-- Hero -->
-<section class="hero">
-  <div class="hero-bg">
-    <div class="hero-grid"></div>
-    <div class="hero-radial"></div>
-  </div>
+<!-- ── Hero ─────────────────────────────────────── -->
+<section id="hero" class="section hero-section">
+  <div class="container">
 
-  <div class="hero-content">
-    <div class="hero-badge reveal">
-      <span class="badge-dot"></span>
-      macOS menu bar · Python · Open Source
-    </div>
+    <h1 class="hero-title">MacMonitor</h1>
 
-    <h1 class="hero-title reveal">
-      Your Mac,<br /><span class="title-accent">Monitored.</span>
-    </h1>
-
-    <p class="hero-sub reveal">
-      A lightweight menu bar agent that shows live CPU, memory, and process stats —
-      no Electron, no bloat, just clear data right where you need it.
+    <p class="hero-desc">
+      A lightweight macOS menu bar app built with
+      [<a href="https://www.python.org" target="_blank" rel="noopener">Python</a>]
+      and [<a href="https://github.com/jaredks/rumps" target="_blank" rel="noopener">rumps</a>].
+      Real-time CPU, memory, and process monitoring — no Electron, no Dock icon, no bloat.
     </p>
 
-    <div class="hero-ctas reveal">
-      <a href="#install" class="btn-primary">Get Started</a>
-      <a href="/docs" class="btn-ghost">Read the Docs →</a>
+    <p class="hero-links">
+      View the [<a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener">source code</a>]
+      or try the [<a href="#features">live demo</a>] below.
+      <a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener" class="gh-btn">★ Star on GitHub</a>
+    </p>
+
+    <!-- Interactive app replica -->
+    <div class="app-demo">
+      <div class="demo-topbar">
+        <span class="demo-path">MacMonitor — live preview</span>
+        <div class="demo-controls">
+          {#each snapshots as s, i}
+            <button
+              class="ctrl-btn"
+              class:active={snapIdx === i && !isAuto}
+              on:click={() => setSnap(i)}
+            >{s.label}</button>
+          {/each}
+          <button
+            class="ctrl-btn"
+            class:active={isAuto}
+            on:click={() => { clearInterval(autoInterval); startAuto(); }}
+          >auto</button>
+        </div>
+      </div>
+
+      <div class="dropdown-replica">
+        <!-- Health -->
+        <div class="dr-row health-row">System Health: {snap.health}</div>
+        <div class="dr-divider"></div>
+
+        <!-- CPU -->
+        <div class="dr-row">CPU {bar(snap.cpu)} {snap.cpu}%  [{snap.cpuStatus}]</div>
+        <div class="dr-row dim-row">GPU Activity: {snap.gpuActivity}</div>
+        <div class="dr-divider"></div>
+
+        <!-- RAM -->
+        <div class="dr-row">RAM {bar(snap.mem)} {snap.mem}% of {snap.memTotal} GB</div>
+        <div class="dr-indent">Wired:       {snap.wired.toFixed(2)} GB</div>
+        <div class="dr-indent">Active:      {snap.active.toFixed(2)} GB</div>
+        <div class="dr-indent">Compressed:  {snap.compressed.toFixed(2)} GB{snap.compressed > snap.active ? '   ← HIGH' : ''}</div>
+        <div class="dr-indent">Cached:      {snap.cached.toFixed(2)} GB</div>
+        <div class="dr-row">Swap {bar(snap.swap)} {snap.swap}%</div>
+        <div class="dr-divider"></div>
+
+        <!-- Settings -->
+        <div class="dr-section">SETTINGS</div>
+        <div class="dr-row indent-row">Thresholds: CPU 85% | MEM 80% | SWAP 20%</div>
+        <div class="dr-divider"></div>
+
+        <!-- CPU Processes -->
+        <div class="dr-section">TOP CPU PROCESSES:</div>
+        {#each snap.cpuProcs as p, i}
+          <button class="dr-proc" on:click={() => toggleCpu(i)}>
+            <span class="proc-name">{p.name}:</span>
+            <span class="proc-pct">{p.pct}</span>
+            <span class="proc-arrow">{expandedCpuIdx === i ? '↓' : '›'}</span>
+          </button>
+          {#if expandedCpuIdx === i}
+            <div class="proc-actions">
+              <button class="proc-action-btn">Kill Process</button>
+              <button class="proc-action-btn">Open Activity Monitor</button>
+            </div>
+          {/if}
+        {/each}
+        <div class="dr-divider"></div>
+
+        <!-- Memory Processes -->
+        <div class="dr-section">TOP MEMORY PROCESSES:</div>
+        {#each snap.memProcs as p, i}
+          <button class="dr-proc" on:click={() => toggleMem(i)}>
+            <span class="proc-name">{p.name}:</span>
+            <span class="proc-pct">{p.pct}</span>
+            <span class="proc-arrow">{expandedMemIdx === i ? '↓' : '›'}</span>
+          </button>
+          {#if expandedMemIdx === i}
+            <div class="proc-actions">
+              <button class="proc-action-btn">Kill Process</button>
+              <button class="proc-action-btn">Open Activity Monitor</button>
+            </div>
+          {/if}
+        {/each}
+        <div class="dr-divider"></div>
+
+        <!-- Footer actions -->
+        <div class="dr-row">REFRESH</div>
+        <div class="dr-row">VIEW LOGS</div>
+        <div class="dr-row dim-row">MacMonitor v1.0.0</div>
+        <div class="dr-divider"></div>
+        <div class="dr-row">QUIT</div>
+      </div>
     </div>
 
-    <div class="hero-mockup reveal">
-      <MenuBarMockup />
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat"><span class="stat-num">5s</span><span class="stat-lbl">Refresh Rate</span></div>
+      <div class="stat"><span class="stat-num">6</span><span class="stat-lbl">Metrics Tracked</span></div>
+      <div class="stat"><span class="stat-num">120s</span><span class="stat-lbl">Alert Cooldown</span></div>
+      <div class="stat"><span class="stat-num">5</span><span class="stat-lbl">Top Processes</span></div>
     </div>
+
   </div>
 </section>
 
-<!-- How It Works -->
+<!-- ── How It Works ──────────────────────────────── -->
 <section id="how-it-works" class="section">
   <div class="container">
-    <div class="section-label reveal">How It Works</div>
-    <h2 class="section-title reveal">Four steps, always running</h2>
-    <p class="section-sub reveal">MacMonitor runs a tight loop in the background — collecting, analyzing, and surfacing exactly what matters.</p>
-    <HowItWorks />
-  </div>
-</section>
+    <h2 class="section-heading">How It Works</h2>
+    <p class="section-sub">
+      Data flows through four logical stages every 5 seconds.
+      Click each stage to see details.
+    </p>
 
-<!-- Menu bar expanded preview -->
-<section class="section preview-section">
-  <div class="container">
-    <div class="section-label reveal">Live Preview</div>
-    <h2 class="section-title reveal">Everything in the dropdown</h2>
-    <p class="section-sub reveal">Click the menu bar title to expand a full system snapshot — memory breakdown, top processes, and one-click kill.</p>
+    <div class="arch-layout">
+      <div class="arch-list">
+        {#each steps as step, i}
+          <button
+            class="arch-item"
+            class:active={activeStep === i}
+            on:click={() => (activeStep = i)}
+          >
+            <span class="arch-num">{step.num}</span>
+            <span class="arch-title">{step.title}</span>
+          </button>
+        {/each}
+      </div>
 
-    <div class="dropdown-mockup reveal">
-      <div class="dm-header">
-        <div class="dm-title">System Health: OK Pressure | HEALTHY</div>
-      </div>
-      <div class="dm-divider"></div>
-      <div class="dm-row">
-        <span class="dm-label">CPU</span>
-        <div class="dm-bar-wrap">
-          <div class="dm-bar" style="width: 43%"></div>
+      <div class="arch-detail">
+        <h3 class="arch-detail-title">{steps[activeStep].title}</h3>
+        <p class="arch-detail-desc">{steps[activeStep].desc}</p>
+        <div class="code-panel">
+          <pre>{steps[activeStep].code}</pre>
         </div>
-        <span class="dm-val">43.0%</span>
-        <span class="dm-status ok">OK</span>
-      </div>
-      <div class="dm-row">
-        <span class="dm-label">GPU</span>
-        <span class="dm-info">Activity: MODERATE</span>
-      </div>
-      <div class="dm-divider"></div>
-      <div class="dm-row">
-        <span class="dm-label">RAM</span>
-        <div class="dm-bar-wrap">
-          <div class="dm-bar warn" style="width: 71%"></div>
-        </div>
-        <span class="dm-val">71.0%</span>
-        <span class="dm-status warn">WARN</span>
-      </div>
-      <div class="dm-mem-detail">
-        <span>Wired <strong>3.20 GB</strong></span>
-        <span>Active <strong>4.80 GB</strong></span>
-        <span>Compressed <strong>2.10 GB</strong></span>
-        <span>Cached <strong>1.50 GB</strong></span>
-      </div>
-      <div class="dm-divider"></div>
-      <div class="dm-section-label">TOP CPU PROCESSES</div>
-      {#each [['Google Chrome', '18.4%'], ['Xcode', '12.1%'], ['WindowServer', '6.7%']] as [name, pct]}
-        <div class="dm-proc">
-          <span class="dm-proc-name">{name}</span>
-          <span class="dm-proc-val">{pct}</span>
-          <button class="dm-kill">Kill</button>
-        </div>
-      {/each}
-      <div class="dm-divider"></div>
-      <div class="dm-footer">
-        <span>MacMonitor v1.0.0</span>
-        <span class="dm-quit">Quit</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Features -->
+<!-- ── Features ──────────────────────────────────── -->
 <section id="features" class="section">
   <div class="container">
-    <div class="section-label reveal">Features</div>
-    <h2 class="section-title reveal">Built for engineers who care about their hardware</h2>
+    <h2 class="section-heading">Features</h2>
+    <p class="section-sub">
+      Switch between views to see what each part of MacMonitor exposes.
+    </p>
 
-    <div class="features-grid stagger">
-      {#each features as { icon, title, desc }}
-        <div class="feature-card">
-          <div class="feature-icon">{@html icon}</div>
-          <div class="feature-text">
-            <h3>{title}</h3>
-            <p>{desc}</p>
-          </div>
-        </div>
+    <div class="tab-bar">
+      {#each featureTabs as tab, i}
+        <button
+          class="tab-btn"
+          class:active={activeTab === i}
+          on:click={() => (activeTab = i)}
+        >{tab.label}</button>
       {/each}
     </div>
-  </div>
-</section>
 
-<!-- Install -->
-<section id="install" class="section">
-  <div class="container install-container">
-    <div class="install-left">
-      <div class="section-label reveal">Installation</div>
-      <h2 class="section-title reveal">Up in 60 seconds</h2>
-      <p class="section-sub reveal">
-        Requires Python 3.9+ and macOS 12+. No Homebrew, no npm, no Docker.
-        Clone, install, run.
-      </p>
-      <ul class="req-list reveal">
-        <li>macOS 12 Monterey or later</li>
-        <li>Python 3.9+</li>
-        <li>pip (bundled with Python)</li>
-      </ul>
-    </div>
-
-    <div class="install-right reveal">
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-title">Terminal</span>
-          <button class="copy-btn" on:click={copyInstall}>
-            {#if copied}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Copied!
-            {:else}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              Copy
-            {/if}
-          </button>
-        </div>
-        <div class="code-body">
-          {#each installSteps as { cmd, comment }, i}
-            <div class="code-line">
-              <span class="code-prompt">$</span>
-              <span class="code-cmd">{cmd}</span>
-              {#if i === 0}<span class="code-comment">&nbsp;&nbsp;{comment}</span>{/if}
-            </div>
-          {/each}
-        </div>
+    <div class="terminal-panel">
+      <div class="terminal-bar">macmonitor · {featureTabs[activeTab].label.toLowerCase()}</div>
+      <div class="terminal-body">
+        <pre class="t-pre">{featureTabs[activeTab].content}</pre>
       </div>
     </div>
+
+    <div class="feature-pairs">
+      <div class="fp-item"><strong>No Electron</strong> — <span>pure Python, near-zero overhead</span></div>
+      <div class="fp-item"><strong>Native alerts</strong> — <span>UserNotifications, not osascript banners</span></div>
+      <div class="fp-item"><strong>Process kill</strong> — <span>SIGTERM any process from the menu</span></div>
+      <div class="fp-item"><strong>Lag detection</strong> — <span>flags when Compressed memory exceeds Active</span></div>
+      <div class="fp-item"><strong>GPU tagging</strong> — <span>Chrome, Electron, Slack auto-labelled</span></div>
+      <div class="fp-item"><strong>Persistent config</strong> — <span>thresholds saved to ~/Library/Application Support</span></div>
+    </div>
   </div>
 </section>
 
-<!-- Footer -->
+<!-- ── Install ───────────────────────────────────── -->
+<section id="install" class="section">
+  <div class="container">
+    <h2 class="section-heading">Get started</h2>
+    <p class="section-sub">Requires Python 3.9+ and macOS 12 Monterey or later.</p>
+
+    <div class="terminal-panel">
+      <div class="terminal-bar terminal-bar-actions">
+        <span>Terminal</span>
+        <button class="copy-btn" on:click={copyCmd}>{copied ? '✓ copied' : 'copy'}</button>
+      </div>
+      <div class="terminal-body">
+        {#each installCmd.split('\n') as line}
+          <div class="t-line">
+            <span class="t-prompt">$</span>
+            <span class="t-cmd">{line}</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <p class="install-note">
+      Auto-start on login via LaunchAgent — see the [<a href="/docs#auto-start">docs</a>].
+      Logs at <code>~/Library/Logs/MacMonitor/macmonitor.log</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────── -->
 <footer class="footer">
-  <div class="footer-inner">
-    <div class="footer-brand">
-      <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-        <rect x="2" y="8" width="28" height="17" rx="3" stroke="white" stroke-width="1.8" opacity="0.6"/>
-        <rect x="5" y="11" width="7" height="6" rx="1.2" fill="#3b82f6" opacity="0.7"/>
-        <rect x="11" y="26" width="10" height="2" rx="1" fill="white" opacity="0.25"/>
-      </svg>
-      <span>MacMonitor</span>
-    </div>
-    <p class="footer-copy">© 2026 MacMonitor · MIT License · Built for macOS</p>
-    <div class="footer-links">
-      <a href="/docs">Docs</a>
-      <a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/dinexh/Monarx/issues" target="_blank" rel="noopener">Issues</a>
-    </div>
+  <div class="container">
+    <p>Built with [<a href="https://www.python.org" target="_blank" rel="noopener">Python</a>] and [<a href="https://github.com/jaredks/rumps" target="_blank" rel="noopener">rumps</a>]. View [<a href="https://github.com/dinexh/Monarx" target="_blank" rel="noopener">source</a>].</p>
+    <p>Made by [<a href="https://dineshkorukonda.in" target="_blank" rel="noopener">Dinesh Korukonda</a>].</p>
   </div>
 </footer>
 
 <style>
-  /* ── Hero ─────────────────────────────────────── */
-  .hero {
-    position: relative;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    padding: 100px 24px 80px;
-  }
+  .container { max-width: 900px; margin: 0 auto; padding: 0 40px; }
+  .section { padding: 100px 0; }
+  .hero-section { padding-top: 140px; padding-bottom: 80px; }
 
-  .hero-bg {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .hero-grid {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black 30%, transparent 100%);
-  }
-
-  .hero-radial {
-    position: absolute;
-    top: -20%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: pulse-glow 6s ease-in-out infinite;
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.08); }
-  }
-
-  .hero-content {
-    position: relative;
-    max-width: 780px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 28px;
-  }
-
-  .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    background: var(--surface-2);
-    border: 1px solid var(--border-2);
-    border-radius: 100px;
-    font-size: 12.5px;
-    color: var(--text-muted);
-    letter-spacing: 0.02em;
-    font-weight: 500;
-  }
-
-  .badge-dot {
-    width: 7px;
-    height: 7px;
-    background: #22c55e;
-    border-radius: 50%;
-    box-shadow: 0 0 8px #22c55e;
-    animation: blink 2s ease-in-out infinite;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
+  /* ── Hero ──────────────────────────────────────── */
   .hero-title {
-    font-size: clamp(52px, 9vw, 92px);
+    font-size: 48px;
     font-weight: 700;
-    line-height: 1.0;
-    letter-spacing: -0.04em;
-    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
   }
 
-  .title-accent {
-    background: linear-gradient(135deg, #fff 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .hero-sub {
-    font-size: clamp(15px, 2.2vw, 18px);
-    color: var(--text-muted);
-    max-width: 540px;
-    line-height: 1.7;
-  }
-
-  .hero-ctas {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .btn-primary {
-    padding: 12px 28px;
-    background: #fff;
-    color: #000;
-    font-weight: 600;
-    font-size: 14px;
-    border-radius: 8px;
-    transition: opacity 0.15s, transform 0.15s;
-    letter-spacing: -0.01em;
-  }
-
-  .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-
-  .btn-ghost {
-    padding: 12px 24px;
-    color: var(--text-muted);
-    font-size: 14px;
-    font-weight: 500;
-    border: 1px solid var(--border-2);
-    border-radius: 8px;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-  }
-
-  .btn-ghost:hover {
-    color: #fff;
-    border-color: #444;
-    background: var(--white-glow);
-  }
-
-  .hero-mockup {
-    width: 100%;
-    max-width: 680px;
-    margin-top: 8px;
-  }
-
-  /* ── Sections ─────────────────────────────────── */
-  .section {
-    padding: 100px 24px;
-    position: relative;
-  }
-
-  .container {
-    max-width: 1080px;
-    margin: 0 auto;
-  }
-
-  .section-label {
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 16px;
-  }
-
-  .section-title {
-    font-size: clamp(28px, 4.5vw, 44px);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.15;
-    margin-bottom: 16px;
-    max-width: 600px;
-  }
-
-  .section-sub {
+  .hero-desc {
     font-size: 16px;
-    color: var(--text-muted);
-    max-width: 500px;
-    line-height: 1.7;
-    margin-bottom: 56px;
+    color: var(--muted);
+    line-height: 1.75;
+    max-width: 620px;
+    margin-bottom: 16px;
   }
 
-  /* ── Dropdown Preview ─────────────────────────── */
-  .preview-section {
-    background: linear-gradient(180deg, transparent, rgba(59,130,246,0.03) 50%, transparent);
+  .hero-desc a,
+  .hero-links a:not(.gh-btn) {
+    color: var(--muted);
+    border-bottom: 1px solid #333;
   }
 
-  .dropdown-mockup {
-    max-width: 520px;
-    margin: 0 auto;
-    background: #0d0d0d;
-    border: 1px solid var(--border-2);
-    border-radius: 14px;
+  .hero-desc a:hover,
+  .hero-links a:not(.gh-btn):hover {
+    color: var(--text);
+    border-color: #666;
+  }
+
+  .hero-links {
+    font-size: 15px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+
+  .gh-btn {
+    padding: 6px 14px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text) !important;
+    border-bottom: 1px solid #333 !important;
+  }
+
+  .gh-btn:hover { border-color: #555 !important; background: var(--surface); }
+
+  /* ── App demo replica ──────────────────────────── */
+  .app-demo {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
     overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 40px 80px rgba(0,0,0,0.8);
+    margin-bottom: 48px;
+  }
+
+  .demo-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #0a0a0a;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .demo-path {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .demo-controls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: 1px solid #242424;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .ctrl-btn:hover { border-color: #444; color: var(--muted); }
+  .ctrl-btn.active { border-color: #666; color: var(--text); background: #111; }
+
+  /* Dropdown replica - monospace, matches real app */
+  .dropdown-replica {
     font-family: var(--mono);
     font-size: 13px;
+    max-height: 500px;
+    overflow-y: auto;
   }
 
-  .dm-header {
-    padding: 14px 18px 10px;
-    background: var(--surface);
+  .dr-row {
+    padding: 6px 18px;
+    color: var(--text);
+    white-space: pre;
+    line-height: 1.5;
   }
 
-  .dm-title {
-    color: #888;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+  .health-row { color: var(--muted); font-size: 12px; padding-top: 10px; }
+  .dim-row    { color: var(--muted); }
+  .indent-row { padding-left: 32px; }
+
+  .dr-indent {
+    padding: 2px 18px 2px 36px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    white-space: pre;
   }
 
-  .dm-divider {
+  .dr-divider {
     height: 1px;
     background: var(--border);
     margin: 4px 0;
   }
 
-  .dm-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 18px;
-  }
-
-  .dm-label {
-    color: #888;
-    width: 40px;
-    font-size: 11.5px;
-    flex-shrink: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .dm-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: var(--border-2);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .dm-bar {
-    height: 100%;
-    background: #3b82f6;
-    border-radius: 3px;
-    transition: width 1s ease;
-  }
-
-  .dm-bar.warn { background: #f59e0b; }
-
-  .dm-val {
-    color: #ccc;
-    font-size: 12px;
-    width: 42px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .dm-status {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    padding: 2px 8px;
-    border-radius: 4px;
-    flex-shrink: 0;
-  }
-
-  .dm-status.ok { color: #22c55e; background: rgba(34,197,94,0.12); }
-  .dm-status.warn { color: #f59e0b; background: rgba(245,158,11,0.12); }
-
-  .dm-info {
-    color: #666;
-    font-size: 12px;
-  }
-
-  .dm-mem-detail {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 4px 18px 10px;
-  }
-
-  .dm-mem-detail span {
-    font-size: 11.5px;
-    color: #555;
-  }
-
-  .dm-mem-detail strong {
-    color: #999;
-    font-weight: 500;
-  }
-
-  .dm-section-label {
+  .dr-section {
     padding: 8px 18px 4px;
-    font-size: 10px;
-    color: #555;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .dm-proc {
-    display: flex;
-    align-items: center;
-    padding: 6px 18px;
-    gap: 12px;
-  }
-
-  .dm-proc-name {
-    flex: 1;
-    font-size: 12.5px;
-    color: #ccc;
-  }
-
-  .dm-proc-val {
-    font-size: 12px;
-    color: #888;
-    width: 44px;
-    text-align: right;
-  }
-
-  .dm-kill {
-    background: rgba(239,68,68,0.1);
-    border: 1px solid rgba(239,68,68,0.25);
-    color: #ef4444;
-    font-size: 10.5px;
-    padding: 2px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s;
-    font-family: var(--font);
-  }
-
-  .dm-kill:hover { background: rgba(239,68,68,0.2); }
-
-  .dm-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 18px 14px;
-    color: #444;
-    font-size: 11.5px;
-  }
-
-  .dm-quit {
-    color: #ef4444;
-    cursor: pointer;
-    opacity: 0.7;
-  }
-
-  /* ── Features ─────────────────────────────────── */
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .feature-card {
-    display: flex;
-    gap: 18px;
-    padding: 28px 26px;
-    background: var(--surface);
-    transition: background 0.2s;
-  }
-
-  .feature-card:hover { background: var(--surface-2); }
-
-  .feature-icon {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: var(--bg);
-    border: 1px solid var(--border-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    transition: color 0.2s, border-color 0.2s;
-  }
-
-  .feature-card:hover .feature-icon {
-    color: #fff;
-    border-color: #333;
-  }
-
-  .feature-text h3 {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin-bottom: 6px;
-    color: #e8e8e8;
-  }
-
-  .feature-text p {
-    font-size: 13.5px;
-    color: var(--text-muted);
-    line-height: 1.65;
-  }
-
-  /* ── Install ──────────────────────────────────── */
-  .install-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 64px;
-    align-items: start;
-  }
-
-  .req-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .req-list li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-
-  .req-list li::before {
-    content: '';
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #3b82f6;
-    flex-shrink: 0;
-  }
-
-  .code-block {
-    background: var(--surface);
-    border: 1px solid var(--border-2);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .code-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface-2);
-  }
-
-  .code-title {
-    font-size: 12px;
-    color: var(--text-dim);
     font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
     letter-spacing: 0.04em;
   }
 
-  .copy-btn {
+  .dr-proc {
     display: flex;
     align-items: center;
-    gap: 5px;
+    width: 100%;
+    padding: 5px 18px;
     background: none;
-    border: 1px solid var(--border-2);
-    color: var(--text-muted);
-    font-size: 11.5px;
-    padding: 4px 10px;
-    border-radius: 5px;
+    border: none;
     cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-    font-family: var(--font);
+    text-align: left;
+    gap: 0;
+    font-family: var(--mono);
+    font-size: 13px;
   }
 
-  .copy-btn:hover { color: #fff; border-color: #444; }
+  .dr-proc:hover { background: #111; }
 
-  .code-body {
-    padding: 18px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+  .proc-name {
+    flex: 1;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 340px;
   }
 
-  .code-line {
+  .proc-pct  { color: var(--muted); width: 50px; text-align: right; }
+  .proc-arrow { color: var(--dim); width: 20px; text-align: right; }
+
+  .proc-actions {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    gap: 8px;
+    padding: 6px 18px 8px 36px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .proc-action-btn {
+    background: none;
+    border: 1px solid #2a2a2a;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 4px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .proc-action-btn:hover { border-color: #444; color: var(--text); }
+
+  /* ── Stats row ─────────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 48px;
     flex-wrap: wrap;
   }
 
-  .code-prompt {
-    color: #3b82f6;
+  .stat { display: flex; flex-direction: column; gap: 6px; }
+
+  .stat-num {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* ── Section typography ─────────────────────────── */
+  .section-heading {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  .section-sub {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 40px;
+    max-width: 520px;
+    line-height: 1.7;
+  }
+
+  /* ── Architecture ───────────────────────────────── */
+  .arch-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .arch-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .arch-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+
+  .arch-item:hover { background: var(--surface); }
+  .arch-item.active { background: var(--surface); }
+
+  .arch-num {
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: 12px;
+    color: var(--dim);
+    width: 24px;
     flex-shrink: 0;
   }
 
-  .code-cmd {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: #e2e8f0;
-    word-break: break-all;
+  .arch-item.active .arch-num { color: var(--muted); }
+
+  .arch-title { font-size: 14px; color: var(--muted); }
+  .arch-item.active .arch-title { color: var(--text); }
+
+  .arch-detail {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    background: var(--surface);
   }
 
-  .code-comment {
+  .arch-detail-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+
+  .arch-detail-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .code-panel {
+    background: #060606;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+
+  .code-panel pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.7;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* ── Tabs ───────────────────────────────────────── */
+  .tab-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  .tab-btn {
+    padding: 6px 16px;
+    border: 1px solid #2a2a2a;
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--font);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .tab-btn:hover { border-color: #444; color: var(--text); }
+  .tab-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  /* ── Terminal panel (features / install) ────────── */
+  .terminal-panel {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .terminal-bar {
+    padding: 10px 16px;
     font-family: var(--mono);
     font-size: 12px;
-    color: #444;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    background: #0a0a0a;
   }
 
-  /* ── Footer ───────────────────────────────────── */
-  .footer {
-    border-top: 1px solid var(--border);
-    padding: 40px 24px;
-  }
-
-  .footer-inner {
-    max-width: 1080px;
-    margin: 0 auto;
+  .terminal-bar-actions {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-
-  .footer-brand {
-    display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #555;
   }
 
-  .footer-copy {
-    font-size: 12.5px;
-    color: var(--text-dim);
-  }
-
-  .footer-links {
+  .terminal-body {
+    padding: 18px 20px;
     display: flex;
-    gap: 20px;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  .footer-links a {
+  .t-pre {
+    font-family: var(--mono);
     font-size: 13px;
-    color: var(--text-dim);
-    transition: color 0.15s;
+    color: var(--muted);
+    line-height: 1.7;
+    white-space: pre;
+    overflow-x: auto;
   }
 
-  .footer-links a:hover { color: #fff; }
+  .t-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
 
-  @media (max-width: 768px) {
-    .install-container {
-      grid-template-columns: 1fr;
-      gap: 40px;
-    }
+  .t-prompt { color: var(--dim); flex-shrink: 0; }
+  .t-cmd    { color: #ccc; }
 
-    .footer-inner {
-      flex-direction: column;
-      align-items: flex-start;
-    }
+  .copy-btn {
+    background: none;
+    border: 1px solid #2a2a2a;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .copy-btn:hover { border-color: #444; color: var(--muted); }
+
+  /* ── Feature pairs ──────────────────────────────── */
+  .feature-pairs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin-top: 16px;
+  }
+
+  .fp-item {
+    padding: 14px 0;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    line-height: 1.5;
+    padding-right: 24px;
+  }
+
+  .fp-item:nth-last-child(-n+2) { border-bottom: none; }
+  .fp-item strong { color: var(--text); font-weight: 500; }
+
+  /* ── Install note ───────────────────────────────── */
+  .install-note {
+    font-size: 13.5px;
+    color: var(--dim);
+    line-height: 1.7;
+    margin-top: -16px;
+  }
+
+  .install-note a { color: var(--dim); border-bottom: 1px solid #2a2a2a; }
+  .install-note a:hover { color: var(--muted); }
+  .install-note code { font-family: var(--mono); font-size: 12.5px; color: #555; }
+
+  /* ── Footer ─────────────────────────────────────── */
+  .footer { border-top: 1px solid var(--border); padding: 40px 0; }
+  .footer .container { display: flex; flex-direction: column; gap: 6px; }
+  .footer p { font-size: 13px; color: var(--dim); }
+  .footer a { color: var(--dim); border-bottom: 1px solid #222; }
+  .footer a:hover { color: var(--muted); }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 700px) {
+    .container { padding: 0 20px; }
+    .section { padding: 70px 0; }
+    .hero-section { padding-top: 100px; }
+    .hero-title { font-size: 32px; }
+    .arch-layout { grid-template-columns: 1fr; }
+    .arch-list { flex-direction: row; flex-wrap: wrap; }
+    .arch-item { flex: 1; min-width: 80px; }
+    .feature-pairs { grid-template-columns: 1fr; }
+    .fp-item:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
+    .fp-item:last-child { border-bottom: none; }
+    .stats-row { gap: 32px; }
+    .proc-name { max-width: 180px; }
   }
 </style>
