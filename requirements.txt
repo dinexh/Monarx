@@ -2,3 +2,4 @@ psutil
 rumps
 pyobjc-framework-Cocoa
 pyobjc-framework-UserNotifications
+pytest
