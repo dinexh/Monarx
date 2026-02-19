@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         working-directory: ./web
         run: npm ci
-      - name: Build Next.js app
+      - name: Build SvelteKit app
         working-directory: ./web
         run: npm run build
 
