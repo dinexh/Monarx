@@ -6,6 +6,7 @@ import logging
 import subprocess
 from pathlib import Path
 
+import time
 import rumps
 
 from core.config import (
@@ -19,6 +20,7 @@ logger = logging.getLogger('macmonitor.mac')
 
 # Icon path — drop any PNG here and it will be picked up automatically.
 _ICON_PATH = Path(__file__).parent / "assets" / "icon.png"
+
 
 # ── Notification centre (UserNotifications framework) ────────────────────────
 
@@ -180,6 +182,14 @@ def get_progress_bar(percent, width=10):
     return "[" + "■" * filled + "□" * (width - filled) + "]"
 
 
+def get_mini_bar(value_gb: float, total_gb: float, width: int = 5) -> str:
+    """Create a compact 5-char bar showing value as a fraction of total RAM."""
+    if total_gb <= 0:
+        return "[" + "□" * width + "]"
+    filled = max(0, min(width, int((value_gb / total_gb) * width)))
+    return "[" + "■" * filled + "□" * (width - filled) + "]"
+
+
 def format_process_name(name, max_length=28):
     """Format process name with smart truncation."""
     if len(name) <= max_length:
@@ -207,6 +217,7 @@ class MacMonitorApp(rumps.App):
         self.top_mem_processes = []
         self.current_stats = {}
         self._menu_updating = False
+        self._last_updated: float | None = None
 
         # Load persisted thresholds (falls back to defaults if none saved)
         self.cpu_limit, self.mem_limit, self.swap_limit = load_thresholds()
@@ -231,41 +242,126 @@ class MacMonitorApp(rumps.App):
             rumps.MenuItem("QUIT", callback=self._quit),
         ]
 
-    def _change_thresholds(self, _):
-        """Change monitoring thresholds via a dialog."""
-        response = rumps.Window(
-            message=(
-                f"Current: CPU={self.cpu_limit}%, Mem={self.mem_limit}%, Swap={self.swap_limit}%\n"
-                f"Enter new values as 'CPU MEM SWAP' (e.g., '90 85 30').\n"
-                f"Each value must be between 1 and 100."
-            ),
-            title="Update Thresholds",
-            cancel=True,
-        ).run()
+    # ── Colour palette ────────────────────────────────────────────────────
+    # Defined as a method so NSColor is only imported after the app is running.
+    #
+    #   green  #4DCC80  – OK
+    #   blue   #5B9CF6  – WARN
+    #   red    #EB5252  – HIGH / STRESS
+    #
+    @staticmethod
+    def _palette():
+        from AppKit import NSColor
+        def srgb(r, g, b, a=1.0):
+            return NSColor.colorWithSRGBRed_green_blue_alpha_(r, g, b, a)
+        return {
+            'emerald': srgb(0.30, 0.80, 0.50),        # OK    – green
+            'blue':    srgb(0.36, 0.61, 0.96),        # WARN  – blue
+            'coral':   srgb(0.92, 0.32, 0.32),        # HIGH  – red
+            # softer variants for the health header row
+            'blue_soft':  srgb(0.36, 0.61, 0.96, 0.88),
+            'coral_soft': srgb(0.92, 0.32, 0.32, 0.88),
+            # text hierarchy
+            'primary':   NSColor.labelColor(),
+            'secondary': NSColor.secondaryLabelColor(),
+            'tertiary':  NSColor.tertiaryLabelColor(),
+        }
 
-        if response.clicked:
+    def _colored_bar_item(self, text, status):
+        """Return a MenuItem where filled bar chars (■) are colored by status."""
+        item = rumps.MenuItem(text)
+        try:
+            from AppKit import NSMutableAttributedString, NSForegroundColorAttributeName
+            p = self._palette()
+            color = {'OK': p['emerald'], 'WARN': p['blue'], 'HIGH': p['coral']}.get(
+                status, p['primary']
+            )
+            attr_str = NSMutableAttributedString.alloc().initWithString_(text)
+            start = 0
+            while True:
+                idx = text.find('■', start)
+                if idx == -1:
+                    break
+                attr_str.addAttribute_value_range_(
+                    NSForegroundColorAttributeName, color, (idx, 1)
+                )
+                start = idx + 1
+            item._menuitem.setAttributedTitle_(attr_str)
+        except Exception as e:
+            logger.debug(f"Colored bar item unavailable: {e}")
+        return item
+
+    def _styled_item(self, text, style='primary', callback=None):
+        """Create a MenuItem with a colour from the shared palette.
+
+        Styles
+        ------
+        primary      full-brightness label colour (default menu text)
+        secondary    dim gray  — sub-rows, GPU line, thresholds
+        tertiary     dimmer    — section labels, footer timestamp
+        health_ok    secondary gray (system healthy)
+        health_warn  soft amber (warning pressure)
+        health_high  soft coral (high pressure / stress)
+        """
+        item = rumps.MenuItem(text, callback=callback)
+        try:
+            from AppKit import NSMutableAttributedString, NSForegroundColorAttributeName
+            p = self._palette()
+            color = {
+                'primary':     p['primary'],
+                'secondary':   p['secondary'],
+                'tertiary':    p['tertiary'],
+                'health_ok':   p['secondary'],
+                'health_warn': p['blue_soft'],
+                'health_high': p['coral_soft'],
+            }.get(style, p['primary'])
+            attr_str = NSMutableAttributedString.alloc().initWithString_(text)
+            attr_str.addAttribute_value_range_(
+                NSForegroundColorAttributeName, color, (0, len(text))
+            )
+            item._menuitem.setAttributedTitle_(attr_str)
+        except Exception as e:
+            logger.debug(f"Styled item unavailable: {e}")
+        return item
+
+    def _change_thresholds(self, _):
+        """Change monitoring thresholds via individual per-metric prompts."""
+        def ask(title, message, current):
+            resp = rumps.Window(
+                message=message,
+                title=title,
+                default_text=str(current),
+                cancel=True,
+            ).run()
+            if not resp.clicked:
+                return None
             try:
-                vals = response.text.split()
-                if len(vals) != 3:
-                    rumps.alert("Please enter exactly three numbers separated by spaces (e.g., '90 85 30').")
-                    return
-                cpu, mem, swap = int(vals[0]), int(vals[1]), int(vals[2])
-                if not all(1 <= v <= 100 for v in (cpu, mem, swap)):
-                    rumps.alert("Each value must be between 1 and 100.")
-                    return
-                self.cpu_limit = cpu
-                self.mem_limit = mem
-                self.swap_limit = swap
-                save_thresholds(cpu, mem, swap)
-                notify("MacMonitor", f"Thresholds set: CPU {cpu}% | MEM {mem}% | SWAP {swap}%")
-                logger.info(f"Thresholds updated: CPU={cpu}, Mem={mem}, Swap={swap}")
-                self._update(None)
+                val = int(resp.text.strip())
+                if not 1 <= val <= 100:
+                    rumps.alert(f"{title}: value must be between 1 and 100.")
+                    return None
+                return val
             except ValueError:
-                rumps.alert("Invalid input. Please enter three whole numbers (e.g., '90 85 30').")
-                logger.error("Error updating thresholds: invalid number format")
-            except Exception as e:
-                rumps.alert("Something went wrong. Please try again.")
-                logger.error(f"Error updating thresholds: {e}")
+                rumps.alert(f"{title}: enter a whole number between 1 and 100.")
+                return None
+
+        cpu = ask("CPU Threshold", f"Alert when CPU exceeds this % (current: {self.cpu_limit}%)", self.cpu_limit)
+        if cpu is None:
+            return
+        mem = ask("Memory Threshold", f"Alert when RAM exceeds this % (current: {self.mem_limit}%)", self.mem_limit)
+        if mem is None:
+            return
+        swap = ask("Swap Threshold", f"Alert when Swap exceeds this % (current: {self.swap_limit}%)", self.swap_limit)
+        if swap is None:
+            return
+
+        self.cpu_limit = cpu
+        self.mem_limit = mem
+        self.swap_limit = swap
+        save_thresholds(cpu, mem, swap)
+        notify("MacMonitor", f"Thresholds updated: CPU {cpu}% | MEM {mem}% | SWAP {swap}%")
+        logger.info(f"Thresholds updated: CPU={cpu}, Mem={mem}, Swap={swap}")
+        self._update(None)
 
     def _kill_process(self, sender):
         """Send SIGTERM to a process."""
@@ -286,6 +382,32 @@ class MacMonitorApp(rumps.App):
         """Open Activity Monitor."""
         subprocess.run(['open', '-a', 'Activity Monitor'])
 
+    def _copy_stats(self, _):
+        """Copy the current stats snapshot to the clipboard via pbcopy."""
+        if not self.current_stats:
+            notify("MacMonitor", "No stats available yet — try again in a moment.")
+            return
+        stats = self.current_stats
+        m = stats.get('macos_mem') or {}
+        lines = [
+            f"MacMonitor Snapshot — {time.strftime('%H:%M:%S')}",
+            f"CPU: {stats['cpu']:.1f}%  RAM: {stats['mem']:.1f}%  Swap: {stats['swap']:.1f}%",
+            f"Pressure: {stats.get('pressure_status', 'N/A')}  Lag Risk: {'Yes' if stats.get('lag_risk') else 'No'}",
+        ]
+        if m:
+            lines.append(
+                f"Wired: {m.get('wired', 0):.2f} GB  "
+                f"Active: {m.get('active', 0):.2f} GB  "
+                f"Compressed: {m.get('compressed', 0):.2f} GB  "
+                f"Cached: {m.get('cached', 0):.2f} GB"
+            )
+        try:
+            subprocess.run(['pbcopy'], input="\n".join(lines).encode(), check=True, timeout=3)
+            notify("MacMonitor", "Stats copied to clipboard")
+            logger.info("Stats copied to clipboard")
+        except Exception as e:
+            logger.error(f"Failed to copy stats: {e}")
+
     def _update_process_menu(self):
         """Rebuild the full dropdown menu with current stats."""
         if self._menu_updating:
@@ -299,14 +421,29 @@ class MacMonitorApp(rumps.App):
 
             cpu_procs, mem_procs, gpu_procs = get_combined_process_info(limit=5)
 
-            # ── Header ──────────────────────────────────────────────────
+            # ── Status values ─────────────────────────────────────────────
+            cpu_status  = get_status(stats['cpu'],  self.cpu_limit)
+            mem_status  = get_status(stats['mem'],  self.mem_limit)
+            swap_status = get_status(stats['swap'], self.swap_limit)
+
+            # ── Health header (short, status-colored) ────────────────────
             pressure_label = get_status_label(stats.get('pressure_status', 'OK'))
-            lag_state = "STRESSED" if stats.get('lag_risk') else "HEALTHY"
-            summary_title = f"System Health: {pressure_label} Pressure | {lag_state}"
+            lag_risk = stats.get('lag_risk', False)
+            lag_state = "STRESSED" if lag_risk else "HEALTHY"
+            summary_title = f"{pressure_label} · {lag_state}"
+
+            if lag_risk or pressure == 'HIGH':
+                health_style = 'health_high'
+            elif pressure == 'WARN':
+                health_style = 'health_warn'
+            else:
+                health_style = 'health_ok'
 
             # ── CPU ──────────────────────────────────────────────────────
-            cpu_status = get_status_label(get_status(stats['cpu'], self.cpu_limit))
-            cpu_line = f"CPU {get_progress_bar(stats['cpu'])} {stats['cpu']:.1f}%  [{cpu_status}]"
+            cpu_item = self._colored_bar_item(
+                f"CPU  {get_progress_bar(stats['cpu'])}  {stats['cpu']:.1f}%",
+                cpu_status,
+            )
 
             # ── GPU heuristic ────────────────────────────────────────────
             gpu_activity = "IDLE"
@@ -323,48 +460,35 @@ class MacMonitorApp(rumps.App):
             mem_breakdown = []
             if m:
                 compressed = m.get('compressed', 0)
-                active = m.get('active', 0)
-                compressed_flag = "  (HIGH)" if compressed > active else ""
+                active     = m.get('active', 0)
+                wired      = m.get('wired', 0)
+                cached     = m.get('cached', 0)
+                compressed_flag = "  ← HIGH" if compressed > active else ""
+
+                ram_text = f"RAM  {get_progress_bar(stats['mem'])}  {stats['mem']:.1f}%"
+                if total_gb:
+                    ram_text += f"  {total_gb:.1f} GB"
+                ram_item = self._colored_bar_item(ram_text, mem_status)
+
                 mem_breakdown = [
-                    rumps.MenuItem(
-                        f"RAM {get_progress_bar(stats['mem'])} {stats['mem']:.1f}%"
-                        + (f" of {total_gb:.1f} GB" if total_gb else "")
-                    ),
-                    rumps.MenuItem(f"  Wired:      {m.get('wired', 0):.2f} GB"),
-                    rumps.MenuItem(f"  Active:     {active:.2f} GB"),
-                    rumps.MenuItem(f"  Compressed: {compressed:.2f} GB{compressed_flag}"),
-                    rumps.MenuItem(f"  Cached:     {m.get('cached', 0):.2f} GB"),
+                    ram_item,
+                    self._styled_item(f"  Wired       {wired:.2f} GB", 'secondary'),
+                    self._styled_item(f"  Active      {active:.2f} GB", 'secondary'),
+                    self._styled_item(f"  Compressed  {compressed:.2f} GB{compressed_flag}", 'secondary'),
+                    self._styled_item(f"  Cached      {cached:.2f} GB", 'secondary'),
                 ]
 
-            swap_line = f"Swap {get_progress_bar(stats['swap'])} {stats['swap']:.1f}%"
+            swap_item = self._colored_bar_item(
+                f"SWAP  {get_progress_bar(stats['swap'])}  {stats['swap']:.1f}%",
+                swap_status,
+            )
 
-            # ── Assemble ─────────────────────────────────────────────────
-            menu_items = [
-                rumps.MenuItem(summary_title),
-                None,
-                rumps.MenuItem(cpu_line),
-                rumps.MenuItem(f"GPU Activity: {gpu_activity}"),
-                None,
-            ]
+            # ── Process submenu ───────────────────────────────────────────
+            proc_menu = rumps.MenuItem("Processes")
 
-            menu_items.extend(mem_breakdown)
-            menu_items.append(rumps.MenuItem(swap_line))
-            menu_items.append(None)
-
-            # Thresholds
-            menu_items.extend([
-                rumps.MenuItem("SETTINGS"),
-                rumps.MenuItem(
-                    f"  Thresholds: CPU {self.cpu_limit}% | MEM {self.mem_limit}% | SWAP {self.swap_limit}%",
-                    callback=self._change_thresholds,
-                ),
-                None,
-            ])
-
-            # Top CPU processes
-            menu_items.append(rumps.MenuItem("TOP CPU PROCESSES:"))
+            proc_menu.add(self._styled_item("CPU", 'tertiary'))
             for p in cpu_procs:
-                p_item = rumps.MenuItem(f"  {format_process_name(p['name'], 25)}: {p['cpu']:.1f}%")
+                p_item = rumps.MenuItem(f"  {format_process_name(p['name'], 24)}  {p['cpu']:.1f}%")
                 kill_item = rumps.MenuItem("Kill Process", callback=self._kill_process)
                 kill_item.pid = p['pid']
                 kill_item.proc_name = p['raw_name']
@@ -372,28 +496,52 @@ class MacMonitorApp(rumps.App):
                 info_item.pid = p['pid']
                 p_item.add(kill_item)
                 p_item.add(info_item)
-                menu_items.append(p_item)
+                proc_menu.add(p_item)
 
-            menu_items.append(None)
-
-            # Top memory processes
-            menu_items.append(rumps.MenuItem("TOP MEMORY PROCESSES:"))
+            proc_menu.add(self._styled_item("Memory", 'tertiary'))
             for p in mem_procs:
-                p_item = rumps.MenuItem(f"  {format_process_name(p['name'], 25)}: {p['mem']:.1f}%")
+                p_item = rumps.MenuItem(f"  {format_process_name(p['name'], 24)}  {p['mem']:.1f}%")
                 kill_item = rumps.MenuItem("Kill Process", callback=self._kill_process)
                 kill_item.pid = p['pid']
                 kill_item.proc_name = p['raw_name']
                 p_item.add(kill_item)
-                menu_items.append(p_item)
+                proc_menu.add(p_item)
 
-            # Footer actions
+            # ── Footer timestamp ──────────────────────────────────────────
+            updated_str = (
+                time.strftime('%H:%M:%S', time.localtime(self._last_updated))
+                if self._last_updated else "--:--:--"
+            )
+
+            # ── Assemble ─────────────────────────────────────────────────
+            menu_items = [
+                self._styled_item(summary_title, health_style),
+                None,
+                cpu_item,
+                self._styled_item(f"  GPU · {gpu_activity}", 'secondary'),
+                None,
+            ]
+
+            menu_items.extend(mem_breakdown)
+            menu_items.append(swap_item)
+            menu_items.append(None)
+
             menu_items.extend([
+                self._styled_item(
+                    f"  CPU {self.cpu_limit}% · MEM {self.mem_limit}% · SWAP {self.swap_limit}%",
+                    'secondary',
+                    callback=self._change_thresholds,
+                ),
                 None,
-                rumps.MenuItem("REFRESH", callback=self._refresh),
-                rumps.MenuItem("VIEW LOGS", callback=self._view_logs),
-                rumps.MenuItem(f"MacMonitor v{__version__}", callback=None),
+                rumps.MenuItem("Refresh", callback=self._refresh),
+                rumps.MenuItem("View Logs", callback=self._view_logs),
+                rumps.MenuItem("Copy Stats", callback=self._copy_stats),
                 None,
-                rumps.MenuItem("QUIT", callback=self._quit),
+                proc_menu,
+                None,
+                self._styled_item(f"v{__version__}  ·  {updated_str}", 'tertiary'),
+                None,
+                rumps.MenuItem("Quit", callback=self._quit),
             ])
 
             # Replace menu atomically
@@ -416,20 +564,20 @@ class MacMonitorApp(rumps.App):
         try:
             stats = get_stats()
             self.current_stats = stats
+            self._last_updated = time.time()
 
-            # Menu bar title — compact and contextual
+            # Menu bar title — compact, uses · as separator
             pressure = stats.get('pressure_status', 'OK')
-            cpu_s = f"C:{stats['cpu']:.0f}%"
-            mem_s = f"M:{stats['mem']:.0f}%"
+            base = f"C:{stats['cpu']:.0f}% · M:{stats['mem']:.0f}%"
 
             if stats.get('lag_risk'):
-                self.title = f"STRESS {cpu_s} {mem_s}"
+                self.title = f"STRESS  {base}"
             elif pressure == 'HIGH':
-                self.title = f"HIGH {cpu_s} {mem_s}"
+                self.title = f"HIGH  {base}"
             elif pressure == 'WARN':
-                self.title = f"WARN {cpu_s} {mem_s}"
+                self.title = f"WARN  {base}"
             else:
-                self.title = f"{cpu_s} {mem_s}"
+                self.title = base
 
             self._update_process_menu()
 
