@@ -75,6 +75,12 @@
   let snap = snapshots[0];
   let autoInterval: ReturnType<typeof setInterval>;
   let isAuto = true;
+  let transitioning = false;
+  let stepFading = false;
+
+  $: healthColor = snap.cpuStatus === 'HIGH' ? '#7a3a3a'
+                 : snap.cpuStatus === 'WARN' ? '#7a6530'
+                 : 'var(--muted)';
 
   function bar(pct: number): string {
     const filled = Math.min(10, Math.round(pct / 100 * 10));
@@ -95,22 +101,40 @@
   }
 
   function setSnap(i: number) {
-    snapIdx = i;
-    snap = snapshots[i];
-    expandedCpuIdx = null;
-    expandedMemIdx = null;
-    if (!isAuto) clearInterval(autoInterval);
+    if (i === snapIdx && !isAuto) return;
+    clearInterval(autoInterval);
     isAuto = false;
+    transitioning = true;
+    setTimeout(() => {
+      snapIdx = i;
+      snap = snapshots[i];
+      expandedCpuIdx = null;
+      expandedMemIdx = null;
+      transitioning = false;
+    }, 180);
   }
 
   function startAuto() {
     isAuto = true;
     autoInterval = setInterval(() => {
-      snapIdx = (snapIdx + 1) % snapshots.length;
-      snap = snapshots[snapIdx];
-      expandedCpuIdx = null;
-      expandedMemIdx = null;
+      transitioning = true;
+      setTimeout(() => {
+        snapIdx = (snapIdx + 1) % snapshots.length;
+        snap = snapshots[snapIdx];
+        expandedCpuIdx = null;
+        expandedMemIdx = null;
+        transitioning = false;
+      }, 180);
     }, 3000);
+  }
+
+  function setStep(i: number) {
+    if (i === activeStep) return;
+    stepFading = true;
+    setTimeout(() => {
+      activeStep = i;
+      stepFading = false;
+    }, 150);
   }
 
   // ── How It Works ─────────────────────────────────
@@ -234,7 +258,26 @@ python main.py`;
     setTimeout(() => (copied = false), 2000);
   }
 
-  onMount(() => startAuto());
+  onMount(() => {
+    startAuto();
+
+    // Section entrance animations
+    const animEls = document.querySelectorAll('.section-animate');
+    const sectionObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            sectionObs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    animEls.forEach((el) => sectionObs.observe(el));
+
+    return () => sectionObs.disconnect();
+  });
   onDestroy(() => clearInterval(autoInterval));
 </script>
 
@@ -262,7 +305,7 @@ python main.py`;
     <!-- Interactive app replica -->
     <div class="app-demo">
       <div class="demo-topbar">
-        <span class="demo-path">MacMonitor — live preview</span>
+        <span class="demo-path">MacMonitor — live preview<span class="blink-cursor">_</span></span>
         <div class="demo-controls">
           {#each snapshots as s, i}
             <button
@@ -279,9 +322,15 @@ python main.py`;
         </div>
       </div>
 
-      <div class="dropdown-replica">
+      {#key snapIdx}
+        {#if isAuto}
+          <div class="progress-bar"></div>
+        {/if}
+      {/key}
+
+      <div class="dropdown-replica" class:fading={transitioning}>
         <!-- Health -->
-        <div class="dr-row health-row">System Health: {snap.health}</div>
+        <div class="dr-row health-row" style="color: {healthColor}">System Health: {snap.health}</div>
         <div class="dr-divider"></div>
 
         <!-- CPU -->
@@ -358,7 +407,7 @@ python main.py`;
 </section>
 
 <!-- ── How It Works ──────────────────────────────── -->
-<section id="how-it-works" class="section">
+<section id="how-it-works" class="section section-animate">
   <div class="container">
     <h2 class="section-heading">How It Works</h2>
     <p class="section-sub">
@@ -372,7 +421,7 @@ python main.py`;
           <button
             class="arch-item"
             class:active={activeStep === i}
-            on:click={() => (activeStep = i)}
+            on:click={() => setStep(i)}
           >
             <span class="arch-num">{step.num}</span>
             <span class="arch-title">{step.title}</span>
@@ -380,7 +429,7 @@ python main.py`;
         {/each}
       </div>
 
-      <div class="arch-detail">
+      <div class="arch-detail" class:fading={stepFading}>
         <h3 class="arch-detail-title">{steps[activeStep].title}</h3>
         <p class="arch-detail-desc">{steps[activeStep].desc}</p>
         <div class="code-panel">
@@ -392,7 +441,7 @@ python main.py`;
 </section>
 
 <!-- ── Features ──────────────────────────────────── -->
-<section id="features" class="section">
+<section id="features" class="section section-animate">
   <div class="container">
     <h2 class="section-heading">Features</h2>
     <p class="section-sub">
@@ -428,7 +477,7 @@ python main.py`;
 </section>
 
 <!-- ── Install ───────────────────────────────────── -->
-<section id="install" class="section">
+<section id="install" class="section section-animate">
   <div class="container">
     <h2 class="section-heading">Get started</h2>
     <p class="section-sub">Requires Python 3.9+ and macOS 12 Monterey or later.</p>
@@ -543,6 +592,38 @@ python main.py`;
     color: var(--dim);
   }
 
+  .blink-cursor {
+    animation: blink 1s step-end infinite;
+    margin-left: 1px;
+    color: var(--dim);
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Auto-rotate progress bar */
+  .progress-bar {
+    height: 1px;
+    background: #111;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-bar::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: #3a3a3a;
+    width: 0;
+    animation: progress-grow 2.9s linear forwards;
+  }
+
+  @keyframes progress-grow {
+    to { width: 100%; }
+  }
+
   .demo-controls {
     display: flex;
     gap: 6px;
@@ -569,7 +650,10 @@ python main.py`;
     font-size: 13px;
     max-height: 500px;
     overflow-y: auto;
+    transition: opacity 0.18s ease;
   }
+
+  .dropdown-replica.fading { opacity: 0; }
 
   .dr-row {
     padding: 6px 18px;
@@ -736,7 +820,10 @@ python main.py`;
     border-radius: 6px;
     padding: 24px;
     background: var(--surface);
+    transition: opacity 0.15s ease;
   }
+
+  .arch-detail.fading { opacity: 0; }
 
   .arch-detail-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
 

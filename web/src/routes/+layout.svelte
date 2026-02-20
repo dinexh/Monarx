@@ -12,10 +12,14 @@
 
   let activeSection = 'hero';
   let isDocsPage = false;
+  let scrolled = false;
 
   $: isDocsPage = $page.url.pathname.startsWith('/docs');
 
   onMount(() => {
+    const onScroll = () => { scrolled = window.scrollY > 10; };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => { if (e.isIntersecting) activeSection = e.target.id; });
@@ -26,7 +30,10 @@
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', onScroll);
+    };
   });
 </script>
 
@@ -35,7 +42,7 @@
   <meta name="description" content="Lightweight macOS menu bar app for real-time CPU, memory, and process monitoring." />
 </svelte:head>
 
-<nav class="nav">
+<nav class="nav" class:scrolled>
   <a href="/" class="nav-brand">MacMonitor</a>
   <div class="nav-links">
     <a href="/#how-it-works">How it works</a>
@@ -66,7 +73,11 @@
     padding: 20px 40px;
     background: rgba(0,0,0,0.9);
     backdrop-filter: blur(8px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.25s ease;
   }
+
+  .nav.scrolled { border-color: var(--border); }
 
   .nav-brand {
     font-size: 14px;
